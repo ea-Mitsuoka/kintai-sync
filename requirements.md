@@ -311,3 +311,70 @@ sequenceDiagram
 3. **パースエンジン設定項目**:
 * 勤怠種別を特定するための正規表現キーワードリスト
 * 日付（当日・明日）を特定するための相対キーワードリスト
+
+
+---
+
+## 8. システムアーキテクチャ図
+
+本システムのGoogle Cloud上での物理構成を以下に示す。
+
+```mermaid
+graph TB
+    subgraph "External"
+        U["ユーザー"]
+        Slack["Slack API"]
+        Jobcan["ジョブカン"]
+        GCal["Google Calendar"]
+    end
+
+    subgraph "Google Cloud Project"
+        subgraph "Ingress Layer"
+            Receiver["Cloud Run: Receiver"]
+        end
+
+        subgraph "Messaging Layer"
+            Topic["Cloud Pub/Sub: Topic"]
+            Sub["Cloud Pub/Sub: Subscription"]
+        end
+
+        subgraph "Worker Layer"
+            Worker["Cloud Run: Worker"]
+        end
+
+        subgraph "Security & Ops"
+            Secret["Secret Manager"]
+            Logging["Cloud Logging"]
+        end
+    end
+
+    U -->|"投稿"| Slack
+    Slack -->|"Event Webhook"| Receiver
+    Receiver -->|"Publish"| Topic
+    Topic --> Sub
+    Sub -->|"Push"| Worker
+
+    Worker -->|"Access Secrets"| Secret
+    Worker -->|"Scraping"| Jobcan
+    Worker -->|"Web API"| Slack
+    Worker -->|"Web API"| GCal
+
+    Receiver -.->|"Logs"| Logging
+    Worker -.->|"Logs"| Logging
+```
+
+## 9. 運用インフラコスト見積もり（概算）
+
+従業員100名程度の規模で、1日200回程度の実行を想定した月額コストの試算である。Google Cloudの無料枠（Free Tier）を最大限活用することで、極めて低コストでの運用が可能である。
+
+| サービス | 想定利用量 | 月額コスト (USD) | 備考 |
+| --- | --- | --- | --- |
+| **Cloud Run** | 1.2万リクエスト/月 (200req/day) | $0.00 | 無料枠（200万リクエスト/月）に収まる |
+| **Cloud Pub/Sub** | 数MB/月 | $0.00 | 無料枠（10GB/月）に収まる |
+| **Secret Manager** | 10個のシークレット | ~$0.30 | $0.03/シークレット |
+| **Artifact Registry** | 5GB程度のイメージ保存 | ~$0.50 | ストレージ料金のみ |
+| **Cloud Logging** | 基本ログのみ | $0.00 | 50GB/月の無料枠内 |
+| **合計** | - | **約 $1.00 (約150円)** | 通信量等の変動を含めても非常に安価 |
+
+※ 2026年6月時点の Google Cloud 価格表に基づいた概算。
+※ 外形監視やバックアップ等の追加オプションを利用する場合は別途発生する。
