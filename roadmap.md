@@ -11,40 +11,40 @@
 ## フェーズ 1: プロジェクト初期化と基盤構築
 - [x] 要件定義の策定 (v2.2.0)
 - [x] 依存ライブラリの定義 (`requirements.txt`)
-- [ ] Terraform ベース構成の作成
-  - [ ] プロジェクト初期設定 (API有効化)
+- [x] Terraform ベース構成の作成 (`terraform/*.tf`)
+  - [x] プロジェクト初期設定 (API有効化)
   - [ ] 状態管理用バケットの作成 (`kintai-sync-tfstate-*`)
-- [ ] 共通サービスアカウントの作成
+  - [x] Firestore データベースの定義
+- [x] 共通サービスアカウントの定義 (`kintai-sync-*-sa`)
 
 ## フェーズ 2: 共通モジュール・設定管理の実装
 - [x] Firestore 連携・履歴管理の実装 (`src/history.py`)
-- [ ] Secret Manager 連携モジュールの実装 (`src/secrets.py`)
-- [ ] **Googleスプレッドシート同期ロジックの実装 (`src/sync.py`)** <-- 次の優先タスク
-- [ ] ログ・スクリーンショット保存機能の実装 (GCS連携)
+- [x] Secret Manager 連携モジュールの実装 (`src/secrets.py`)
+- [x] Googleスプレッドシート同期ロジックの実装 (`src/sync.py`)
+- [x] 各種外部連携モジュールの実装 (`slack.py`, `calendar.py`, `jobcan.py`)
+- [ ] ログ・スクリーンショット保存機能の完成 (GCS連携の詳細)
+- [ ] [手動タスク] Secret Manager への初期シークレット登録
 
 ## フェーズ 3: コアロジック（メッセージ解析と外部連携）の実装
-- [ ] Vertex AI (Gemini API) によるメッセージ解析ロジック
-- [ ] Playwright によるジョブカン自動申請の実装 (`src/jobcan.py`)
-- [ ] Slack Web API 連携（通知・ステータス変更）の実装 (`src/slack.py`)
-- [ ] Google Calendar API 連携の実装 (`src/calendar.py`)
+- [x] Vertex AI (Gemini API) によるメッセージ解析ロジック (`src/parser.py`)
+- [x] Worker サービスのメインロジック実装 (`src/main.py`)
+- [x] Receiver サービスのメインロジック実装 (`src/receiver.py`)
 
 ## フェーズ 4: サーバーレスアーキテクチャの構築
-- [ ] Receiver サービス (Webhook 受信・Tasks エンキュー) の実装
-- [ ] Cloud Tasks キューの構築
-- [ ] Worker サービス (非同期実行エンジン) の実装
+- [ ] 各サービスの Dockerfile 作成
+- [x] Cloud Tasks キューの定義 (Terraform)
 - [ ] 各サービスの Cloud Run デプロイ設定 (Terraform)
+- [ ] IAM 権限 (Roles) の詳細設定 (Terraform)
+- [ ] 定期実行設定 (Cloud Scheduler / 同期ロジック用)
 
 ## フェーズ 5: テスト・品質保証
 - [ ] 各モジュールのユニットテスト作成 (`tests/`)
 - [ ] 疎通テスト（Slack -> Cloud Run -> Cloud Tasks -> Worker）
-- [ ] エラーハンドリング・リトライ挙動の確認
-- [ ] べき等性の検証
+- [ ] 冪等性（二重実行防止）の検証
 
 ## フェーズ 6: デプロイ・運用準備
 - [ ] 本番環境への全リソースデプロイ
 - [ ] マスター設定用スプレッドシートの作成・共有
-- [ ] 利用者向けマニュアル/簡易ガイドの作成
-- [ ] 運用監視（Cloud Logging / Dashboard）の設定
 
 ---
 *最終更新日: 2026年6月27日*

@@ -7,6 +7,8 @@ class UserSettings(BaseModel):
     Configuration for an individual user, managed via Google Sheets and cached in Firestore.
     """
     slack_user_id: str
+    jobcan_company_id: str  # Added for multi-company/user support
+    jobcan_staff_code: str  # Added to link with staff credentials
     morning_off_start: str = "09:00"
     morning_off_end: str = "13:00"
     afternoon_off_start: str = "14:00"
