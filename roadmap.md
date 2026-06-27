@@ -31,10 +31,10 @@
 - [x] Receiver サービスのメインロジック実装 (`src/receiver.py`)
 
 ## フェーズ 4: サーバーレスアーキテクチャの構築
-- [ ] 各サービスの Dockerfile 作成
+- [x] 各サービスの Dockerfile 作成 (`Dockerfile.*`)
 - [x] Cloud Tasks キューの定義 (Terraform)
-- [ ] 各サービスの Cloud Run デプロイ設定 (Terraform)
-- [ ] IAM 権限 (Roles) の詳細設定 (Terraform)
+- [x] 各サービスの Cloud Run デプロイ設定 (Terraform)
+- [x] IAM 権限 (Roles) の詳細設定 (Terraform)
 - [ ] 定期実行設定 (Cloud Scheduler / 同期ロジック用)
 
 ## フェーズ 5: テスト・品質保証

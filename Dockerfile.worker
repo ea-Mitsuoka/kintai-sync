@@ -1,0 +1,16 @@
+# Use Playwright's official image for the Worker
+FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy
+
+ENV PYTHONUNBUFFERED=1
+WORKDIR /app
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source code
+COPY src/ ./src/
+
+# Playwright browsers are already installed in this image
+# We just need to make sure the app can run
+CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "4", "--timeout", "0", "src.main:app"]
