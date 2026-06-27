@@ -4,12 +4,19 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /uv/bin/
+ENV PATH="/uv/bin:$PATH"
+
 # Install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 
-# Copy source code
+# Copy source code and config
 COPY src/ ./src/
+COPY config.yaml .
 
-# Entry point will be overridden by Cloud Run/Scheduler
+# Use the virtual environment created by uv
+ENV PATH="/app/.venv/bin:$PATH"
+
 CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "src.receiver:app"]

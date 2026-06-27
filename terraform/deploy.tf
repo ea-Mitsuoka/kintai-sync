@@ -49,7 +49,7 @@ resource "google_cloud_run_v2_service" "receiver" {
   template {
     service_account = google_service_account.receiver_sa.email
     containers {
-      image = "asia-northeast1-docker.pkg.dev/${var.project_id}/${var.app_prefix}-repo/receiver:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.app_prefix}-repo/receiver:latest"
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
@@ -70,7 +70,7 @@ resource "google_cloud_run_v2_service" "worker" {
   template {
     service_account = google_service_account.worker_sa.email
     containers {
-      image = "asia-northeast1-docker.pkg.dev/${var.project_id}/${var.app_prefix}-repo/worker:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.app_prefix}-repo/worker:latest"
       resources {
         limits = {
           cpu    = "2"
@@ -89,14 +89,14 @@ resource "google_cloud_run_v2_service" "sync" {
   template {
     service_account = google_service_account.sync_sa.email
     containers {
-      image = "asia-northeast1-docker.pkg.dev/${var.project_id}/${var.app_prefix}-repo/sync:latest"
+      image = "${var.region}-docker.pkg.dev/${var.project_id}/${var.app_prefix}-repo/sync:latest"
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
       }
       env {
         name  = "SETTINGS_SPREADSHEET_ID"
-        value = "placeholder-id"
+        value = var.settings_spreadsheet_id
       }
     }
   }

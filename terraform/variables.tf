@@ -11,6 +11,12 @@ variable "region" {
 
 variable "app_prefix" {
   description = "Prefix for all resources"
-  type        = str
+  type        = string
   default     = "kintai-sync"
+}
+
+variable "settings_spreadsheet_id" {
+  description = "The ID of the Google Spreadsheet for user settings"
+  type        = string
+  default     = ""
 }
