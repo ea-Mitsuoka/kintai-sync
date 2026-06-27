@@ -5,8 +5,9 @@ TF_STATE_BUCKET ?= kintai-sync-tfstate-$(PROJECT_ID)
 TF_SA_NAME ?= kintai-sync-terraform-sa
 TF_SA_EMAIL ?= $(TF_SA_NAME)@$(PROJECT_ID).iam.gserviceaccount.com
 APP_PREFIX ?= kintai-sync
+REPO_NAME ?= $(APP_PREFIX)-repo
 
-.PHONY: help setup check generate lint opa test plan deploy destroy destroy-all prune template logs secrets register-user
+.PHONY: help setup check generate lint opa test plan build push deploy destroy destroy-all prune template logs secrets register-user register-secrets
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -30,6 +31,7 @@ setup: ## Initial setup (create tfstate bucket, SA, and IAM roles)
 		gcloud iam service-accounts create $(TF_SA_NAME) \
 			--project $(PROJECT_ID) \
 			--display-name "Terraform Execution Account"; \
+		sleep 5; \
 	else \
 		echo "Service Account already exists."; \
 	fi
@@ -63,18 +65,31 @@ lint: ## Lint and format Terraform and Python files
 	@echo "Formatting Terraform files..."
 	terraform fmt -recursive terraform/
 
-opa: ## Check Rego policy syntax (stub)
-	@echo "Checking OPA policies..."
-	@if command -v opa >/dev/null; then opa check terraform/policies/; else echo "OPA not installed, skipping..."; fi
-
 test: ## Run unit tests
 	@echo "Running tests with uv..."
 	uv run pytest --cov=src
 
-plan: ## Preview infrastructure changes
-	cd terraform && terraform plan -var="project_id=$(PROJECT_ID)"
+build: ## Build Docker images for Cloud Run
+	@echo "Building Receiver image..."
+	docker build -t $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/receiver:latest -f Dockerfile.receiver .
+	@echo "Building Worker image..."
+	docker build -t $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/worker:latest -f Dockerfile.worker .
+	@echo "Building Sync image..."
+	docker build -t $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/sync:latest -f Dockerfile.receiver . # Uses same Dockerfile
 
-deploy: ## Deploy the infrastructure
+push: ## Push Docker images to Artifact Registry
+	@echo "Ensuring Artifact Registry exists..."
+	@if ! gcloud artifacts repositories describe $(REPO_NAME) --location=$(REGION) --project $(PROJECT_ID) >/dev/null 2>&1; then \
+		echo "Creating Repository $(REPO_NAME)..."; \
+		gcloud artifacts repositories create $(REPO_NAME) --repository-format=docker --location=$(REGION) --project $(PROJECT_ID); \
+	fi
+	gcloud auth configure-docker $(REGION)-docker.pkg.dev --quiet
+	docker push $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/receiver:latest
+	docker push $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/worker:latest
+	docker push $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/sync:latest
+
+deploy: build push ## Full deploy: build, push, and apply terraform
+	@echo "Deploying infrastructure via Terraform..."
 	cd terraform && terraform apply -var="project_id=$(PROJECT_ID)" -auto-approve
 
 destroy: ## Destroy infrastructure managed by Terraform (preserves bootstrap resources)
@@ -112,12 +127,25 @@ register-user: ## Register/Update a user's Jobcan password in Secret Manager
 	echo -n "$$password" | gcloud secrets versions add $$secret_id --project $(PROJECT_ID) --data-file=-; \
 	echo "Successfully registered password for $$staff_code."
 
+register-secrets: ## Interactively register Slack tokens in Secret Manager
+	@read -s -p "Enter Slack Bot Token (xoxb-...): " bot_token; echo; \
+	read -s -p "Enter Slack Signing Secret: " signing_secret; echo; \
+	for sid in $(APP_PREFIX)-slack-bot-token $(APP_PREFIX)-slack-signing-secret; do \
+		if ! gcloud secrets describe $$sid --project $(PROJECT_ID) >/dev/null 2>&1; then \
+			echo "Creating secret $$sid..."; \
+			gcloud secrets create $$sid --project $(PROJECT_ID) --replication-policy="automatic"; \
+		fi; \
+	done; \
+	echo -n "$$bot_token" | gcloud secrets versions add $(APP_PREFIX)-slack-bot-token --project $(PROJECT_ID) --data-file=-; \
+	echo -n "$$signing_secret" | gcloud secrets versions add $(APP_PREFIX)-slack-signing-secret --project $(PROJECT_ID) --data-file=-; \
+	echo "Slack secrets registered successfully."
+
 logs: ## View recent application logs
 	@echo "Fetching logs for 'kintai-sync' services..."
-	gcloud logging read "resource.type=(cloud_run_revision) AND resource.labels.service_name:(kintai-sync)" --limit 50 --format="table(timestamp,textPayload)"
+	gcloud logging read "resource.type=(cloud_run_revision) AND resource.labels.service_name:($(APP_PREFIX))" --limit 50 --format="table(timestamp,textPayload)"
 
 secrets: ## List registered secrets
-	@gcloud secrets list --project $(PROJECT_ID) --filter="name:kintai-sync OR name:JOBCAN_PASSWORD"
+	@gcloud secrets list --project $(PROJECT_ID) --filter="name:$(APP_PREFIX) OR name:JOBCAN_PASSWORD"
 
 prune: ## Interactively remove unused directories (SSoT artifacts)
 	@echo "Pruning unused artifacts..."
