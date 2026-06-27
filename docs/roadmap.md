@@ -16,10 +16,10 @@
   - [x] API有効化 / SA定義 / Firestore / Cloud Tasks
   - [x] Artifact Registry / Secret Manager 定義
   - [x] 削除ポリシーの徹底 (`force_destroy`, `deletion_policy`)
-- [x] **[基盤]** ライフサイクル自動化コマンドの構築 (`Makefile`)
+- [x] **[自動化]** ライフサイクル管理コマンドの構築 (`Makefile`)
   - [x] ブートストラップ自動化 (`make setup`)
-  - [x] ログ確認・管理コマンド (`make logs`, `make secrets`)
-  - [x] ユーザー追加・秘密情報登録 (`make register-user`, `make register-secrets`)
+  - [x] イメージビルド・PUSH自動化 (`make build`, `make push`)
+  - [x] 秘密情報・ユーザー登録の自動化 (`make register-secrets`, `make register-user`)
   - [x] インフラ破棄の分離 (`make destroy` / `make destroy-all`)
 
 ## フェーズ 2: 共通モジュール・設定管理の実装
@@ -32,7 +32,7 @@
 
 ## フェーズ 3: コアロジック（メッセージ解析と外部連携）の実装
 
-- [x] Vertex AI (Gemini API) によるメッセージ解析ロジック (`src/parser.py`)
+- [x] Vertex AI (Gemini 3 Flash Preview) によるメッセージ解析ロジック (`src/parser.py`)
 - [x] Worker サービスのメインロジック実装 (`src/main.py`)
 - [x] Receiver サービスのメインロジック実装 (`src/receiver.py`)
 
@@ -51,14 +51,13 @@
 ## フェーズ 6: デプロイ・運用準備 (最終仕上げ)
 
 - [x] **[基盤]** 設定用テンプレート生成コマンドの作成 (`make template`)
-- [x] **[基盤]** 開発・運用ツールの拡充
+- [x] **[自動化]** 開発・運用ツールの拡充
   - [x] プリフライトチェック機能 (`make check`)
   - [x] コード品質管理の導入 (`make lint` / ruff)
   - [x] アーティファクトクリーンアップ (`make prune`)
-- [ ] **[準備]** Artifact Registry への Docker イメージ PUSH (`docker build & push`)
-- [x] **[展開]** Terraform による本番環境デプロイ自動化 (`make deploy`)
-- [ ] **[設定]** Secret Manager への実トークン/パスワード登録
-  - [x] 登録用自動化コマンドの実装 (`make register-secrets`)
+- [x] **[自動化]** デプロイパイプラインの統合 (`make deploy`)
+- [ ] **[実行]** 実際のデプロイ作業の実施 (`make setup` -> `make deploy`)
+- [ ] **[実行]** Secret Manager への実トークン/パスワード登録
   - [ ] `kintai-sync-slack-bot-token`
   - [ ] `kintai-sync-slack-signing-secret`
   - [ ] `JOBCAN_PASSWORD_[staff_code]` (各ユーザー分)
