@@ -4,7 +4,7 @@ gcp:
   location: "us-central1" # Vertex AI location
 
 gemini:
-  model_name: "gemini-1.5-flash"
+  model_name: "gemini-3-flash-preview"
   prompt_template: |
     Extract attendance information from the following Slack message.
     Today's date is {current_date}.
