@@ -64,11 +64,25 @@ class SettingsSyncer:
 
         print(f"Successfully synced {synced_count} users to Firestore.")
 
-if __name__ == "__main__":
-    # This block is for testing or running via Cloud Scheduler
-    S_ID = os.getenv("SETTINGS_SPREADSHEET_ID")
-    if S_ID:
-        syncer = SettingsSyncer(S_ID)
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route("/sync", methods=["POST"])
+def sync_endpoint():
+    """HTTP endpoint to trigger the sync process."""
+    spreadsheet_id = os.getenv("SETTINGS_SPREADSHEET_ID")
+    if not spreadsheet_id:
+        return jsonify({"error": "SETTINGS_SPREADSHEET_ID not set"}), 500
+    
+    try:
+        syncer = SettingsSyncer(spreadsheet_id)
         syncer.sync()
-    else:
-        print("Error: SETTINGS_SPREADSHEET_ID not set.")
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+if __name__ == "__main__":
+    # For local testing
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)

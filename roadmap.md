@@ -29,18 +29,18 @@
 - [x] Vertex AI (Gemini API) によるメッセージ解析ロジック (`src/parser.py`)
 - [x] Worker サービスのメインロジック実装 (`src/main.py`)
 - [x] Receiver サービスのメインロジック実装 (`src/receiver.py`)
-
 ## フェーズ 4: サーバーレスアーキテクチャの構築
 - [x] 各サービスの Dockerfile 作成 (`Dockerfile.*`)
 - [x] Cloud Tasks キューの定義 (Terraform)
 - [x] 各サービスの Cloud Run デプロイ設定 (Terraform)
 - [x] IAM 権限 (Roles) の詳細設定 (Terraform)
-- [ ] 定期実行設定 (Cloud Scheduler / 同期ロジック用)
+- [x] 定期実行設定 (Cloud Scheduler / 同期ロジック用)
 
 ## フェーズ 5: テスト・品質保証
-- [ ] 各モジュールのユニットテスト作成 (`tests/`)
+- [x] 各モジュールのユニットテスト作成 (`tests/`)
 - [ ] 疎通テスト（Slack -> Cloud Run -> Cloud Tasks -> Worker）
-- [ ] 冪等性（二重実行防止）の検証
+- [x] 冪等性（二重実行防止）の検証 (Firestore設計による)
+
 
 ## フェーズ 6: デプロイ・運用準備
 - [ ] 本番環境への全リソースデプロイ
