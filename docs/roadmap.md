@@ -19,7 +19,7 @@
 - [x] **[基盤]** ライフサイクル自動化コマンドの構築 (`Makefile`)
   - [x] ブートストラップ自動化 (`make setup`)
   - [x] ログ確認・管理コマンド (`make logs`, `make secrets`)
-  - [x] ユーザー追加自動化 (`make register-user`)
+  - [x] ユーザー追加・秘密情報登録 (`make register-user`, `make register-secrets`)
   - [x] インフラ破棄の分離 (`make destroy` / `make destroy-all`)
 
 ## フェーズ 2: 共通モジュール・設定管理の実装
@@ -58,6 +58,7 @@
 - [ ] **[準備]** Artifact Registry への Docker イメージ PUSH (`docker build & push`)
 - [x] **[展開]** Terraform による本番環境デプロイ自動化 (`make deploy`)
 - [ ] **[設定]** Secret Manager への実トークン/パスワード登録
+  - [x] 登録用自動化コマンドの実装 (`make register-secrets`)
   - [ ] `kintai-sync-slack-bot-token`
   - [ ] `kintai-sync-slack-signing-secret`
   - [ ] `JOBCAN_PASSWORD_[staff_code]` (各ユーザー分)
