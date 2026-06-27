@@ -98,7 +98,6 @@ graph TB
         subgraph "Messaging & Logic Layer"
             Tasks["Cloud Tasks: Queue"]
             Worker["Cloud Run: Worker"]
-            Sync["Cloud Run: Sync Logic"]
             LLM["Vertex AI: Gemini API"]
         end
 
@@ -112,8 +111,6 @@ graph TB
 
     U -->|"投稿"| Slack
     Slack -->|"Event Webhook"| Receiver
-    GSheet -->|"Update"| Sync
-    Sync -->|"Sync Data"| Firestore
     Receiver -->|"Create Task"| Tasks
     Tasks -->|"Push Dispatch"| Worker
 
@@ -124,10 +121,11 @@ graph TB
     Worker -->|"Scraping"| Jobcan
     Worker -->|"Web API"| Slack
     Worker -->|"Web API"| GCal
+    Worker -->|"設定の遅延読込 (TTLキャッシュ)"| GSheet
+    Worker -->|"設定キャッシュ書込/参照"| Firestore
 
     Receiver -.->|"Logs"| Logging
     Worker -.->|"Logs"| Logging
-    Sync -.->|"Logs"| Logging
 ```
 
 ### 3.4. システムシーケンス
@@ -268,9 +266,11 @@ ______________________________________________________________________
 
 - システムの設定値（ユーザーID、勤務時間定義等）のマスターデータは、専用のGoogleスプレッドシートで管理する。
 
-- **【FR-7.2】Firestoreへの自動同期ロジック**
+- **【FR-7.2】Firestoreへの遅延読み込み同期ロジック**
 
-- スプレッドシートの更新をトリガー、または定期実行によってFirestoreの `users` コレクションへ同期する。
+- Workerは設定参照の直前に、Firestoreのキャッシュ鮮度（`sync_meta` の最終同期時刻）を確認する。`sync.cache_ttl_seconds` を超過している場合のみスプレッドシートを読み込み、Firestoreの `users` コレクションへ反映（read-through キャッシュ）する。
+
+- これにより、GAS連携・手動コマンド・Cloud Scheduler のいずれも使わずに設定を最新化する。スプレッドシートへのアクセスはキャッシュミス時のみに限定され、コストとAPI呼び出しを最小化する。
 
 - 実行時のパフォーマンス低下を防ぐため、Workerは原則としてFirestore側のデータ（キャッシュ）を参照する。
 

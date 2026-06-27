@@ -59,7 +59,7 @@ The system is "Production-Ready" in terms of code and infra definitions.
 - **Pending (Phase 6)**:
   - Pushing images to Artifact Registry.
   - Final E2E verification with real tokens.
-  - Setting up Google Apps Script (GAS) to trigger `make sync`.
+  - Registering the Sheets OAuth refresh token via `make register-sheets-oauth`. The settings spreadsheet cannot be shared with the Worker service account (the e-agency Workspace sharing policy treats `gserviceaccount.com` as an external domain), so the Worker reads the sheet as an authorized *user* via an OAuth refresh token stored in Secret Manager (`kintai-sync-sheets-oauth`). Settings sync no longer uses GAS, `make sync`, or Cloud Scheduler — the Worker refreshes from the sheet on demand when its cached snapshot is older than `sync.cache_ttl_seconds`. Set the OAuth consent screen to "Internal" so the refresh token does not expire.
 
 ## 7. Reference Documents
 

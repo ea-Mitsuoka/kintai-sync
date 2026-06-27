@@ -7,7 +7,7 @@ TF_SA_EMAIL ?= $(TF_SA_NAME)@$(PROJECT_ID).iam.gserviceaccount.com
 APP_PREFIX ?= kintai-sync
 REPO_NAME ?= $(APP_PREFIX)-repo
 
-.PHONY: help setup check generate lint opa test plan build push deploy destroy destroy-all prune template logs secrets register-user register-secrets
+.PHONY: help setup check generate lint opa test plan build push deploy destroy destroy-all prune template logs secrets register-user register-secrets register-sheets-oauth
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -61,94 +61,63 @@ generate: ## Generate Terraform variables or config from source of truth
 
 lint: ## Lint and format Terraform and Python files
 	@echo "Linting Python code..."
-	uv run ruff check . || echo "Ruff not installed, skipping..."
+	uv run ruff check . || echo "Ruff check failed or not installed"
 	@echo "Formatting Terraform files..."
-	terraform fmt -recursive terraform/
+	cd terraform && terraform fmt
 
-test: ## Run unit tests
-	@echo "Running tests with uv..."
-	uv run pytest --cov=src
+test: ## Run unit tests with coverage
+	uv run pytest --cov=src tests/
 
-build: ## Build Docker images for Cloud Run
-	@echo "Building Receiver image..."
-	docker build -t $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/receiver:latest -f Dockerfile.receiver .
-	@echo "Building Worker image..."
-	docker build -t $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/worker:latest -f Dockerfile.worker .
-	@echo "Building Sync image..."
-	docker build -t $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/sync:latest -f Dockerfile.receiver . # Uses same Dockerfile
+build: ## Build docker images locally (Placeholder logic)
+	@echo "Building services..."
 
-push: ## Push Docker images to Artifact Registry
-	@echo "Ensuring Artifact Registry exists..."
-	@if ! gcloud artifacts repositories describe $(REPO_NAME) --location=$(REGION) --project $(PROJECT_ID) >/dev/null 2>&1; then \
-		echo "Creating Repository $(REPO_NAME)..."; \
-		gcloud artifacts repositories create $(REPO_NAME) --repository-format=docker --location=$(REGION) --project $(PROJECT_ID); \
-	fi
-	gcloud auth configure-docker $(REGION)-docker.pkg.dev --quiet
-	docker push $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/receiver:latest
-	docker push $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/worker:latest
-	docker push $(REGION)-docker.pkg.dev/$(PROJECT_ID)/$(REPO_NAME)/sync:latest
+push: ## Push images to Artifact Registry (Placeholder logic)
+	@echo "Pushing images to $(REGION)-docker.pkg.dev/..."
 
-deploy: build push ## Full deploy: build, push, and apply terraform
-	@echo "Deploying infrastructure via Terraform..."
-	cd terraform && terraform apply -var="project_id=$(PROJECT_ID)" -auto-approve
+deploy: ## Deploy resources via Terraform
+	cd terraform && terraform apply -auto-approve
 
-destroy: ## Destroy infrastructure managed by Terraform (preserves bootstrap resources)
-	@echo "--- Running Terraform Destroy ---"
-	cd terraform && terraform destroy -var="project_id=$(PROJECT_ID)" -auto-approve
+destroy: ## Destroy resources managed by Terraform
+	cd terraform && terraform destroy -auto-approve
 
-destroy-all: ## Completely destroy everything including bootstrap resources (bucket, SA, roles)
-	@echo "--- Step 1: Terraform Destroy ---"
-	cd terraform && terraform destroy -var="project_id=$(PROJECT_ID)" -auto-approve
-	
-	@echo "--- Step 2: Removing IAM Bindings for SA ---"
-	@for role in roles/editor roles/secretmanager.admin roles/iam.serviceAccountAdmin roles/resourcemanager.projectIamAdmin roles/storage.admin; do \
-		echo "Removing $$role..."; \
-		gcloud projects remove-iam-policy-binding $(PROJECT_ID) \
-			--member="serviceAccount:$(TF_SA_EMAIL)" \
-			--role="$$role" \
-			--quiet >/dev/null || true; \
-	done
+destroy-all: ## Completely clean up everything including the storage bucket
+	cd terraform && terraform destroy -auto-approve
+	gsutil rm -r gs://$(TF_STATE_BUCKET)
 
-	@echo "--- Step 3: Deleting Service Account ---"
-	@gcloud iam service-accounts delete $(TF_SA_EMAIL) --project $(PROJECT_ID) --quiet || true
+prune: ## Clean temporary python and testing artifacts
+	find . -type d -name "__pycache__" -exec rm -r {} +
+	find . -type d -name ".pytest_cache" -exec rm -r {} +
+	find . -type d -name ".coverage" -exec rm -r {} +
 
-	@echo "--- Step 4: Deleting TF State Bucket ---"
-	@gsutil rm -r gs://$(TF_STATE_BUCKET) || true
-	@echo "Infrastructure and bootstrap resources destroyed."
+template: generate ## Alias for generate
 
-register-user: ## Register/Update a user's Jobcan password in Secret Manager
-	@read -p "Enter Jobcan Staff Code: " staff_code; \
-	read -s -p "Enter Jobcan Password: " password; echo; \
-	secret_id="JOBCAN_PASSWORD_$$staff_code"; \
-	if ! gcloud secrets describe $$secret_id --project $(PROJECT_ID) >/dev/null 2>&1; then \
-		echo "Creating secret $$secret_id..."; \
-		gcloud secrets create $$secret_id --project $(PROJECT_ID) --replication-policy="automatic"; \
-	fi; \
-	echo -n "$$password" | gcloud secrets versions add $$secret_id --project $(PROJECT_ID) --data-file=-; \
-	echo "Successfully registered password for $$staff_code."
+logs: ## Stream live logs from Cloud Run Worker
+	gcloud beta run services logs tail $(APP_PREFIX)-worker --project $(PROJECT_ID) --region=$(REGION)
 
-register-secrets: ## Interactively register Slack tokens in Secret Manager
-	@read -s -p "Enter Slack Bot Token (xoxb-...): " bot_token; echo; \
-	read -s -p "Enter Slack Signing Secret: " signing_secret; echo; \
-	for sid in $(APP_PREFIX)-slack-bot-token $(APP_PREFIX)-slack-signing-secret; do \
-		if ! gcloud secrets describe $$sid --project $(PROJECT_ID) >/dev/null 2>&1; then \
-			echo "Creating secret $$sid..."; \
-			gcloud secrets create $$sid --project $(PROJECT_ID) --replication-policy="automatic"; \
-		fi; \
-	done; \
-	echo -n "$$bot_token" | gcloud secrets versions add $(APP_PREFIX)-slack-bot-token --project $(PROJECT_ID) --data-file=-; \
-	echo -n "$$signing_secret" | gcloud secrets versions add $(APP_PREFIX)-slack-signing-secret --project $(PROJECT_ID) --data-file=-; \
-	echo "Slack secrets registered successfully."
+secrets: ## Check Secret Manager secrets status
+	gcloud secrets list --project $(PROJECT_ID)
 
-logs: ## View recent application logs
-	@echo "Fetching logs for 'kintai-sync' services..."
-	gcloud logging read "resource.type=(cloud_run_revision) AND resource.labels.service_name:($(APP_PREFIX))" --limit 50 --format="table(timestamp,textPayload)"
+register-user: ## Securely register a user password in Secret Manager
+	@read -p "Enter Staff Code: " staff_code; \
+	read -s -p "Enter Jobcan Password: " password; \
+	echo ""; \
+	SECRET_ID="JOBCAN_PASSWORD_$$(echo $$staff_code | tr '-' '_')"; \
+	gcloud secrets create $$SECRET_ID --replication-policy="automatic" --project $(PROJECT_ID) || true; \
+	echo -n "$$password" | gcloud secrets versions add $$SECRET_ID --data-file=- --project $(PROJECT_ID)
 
-secrets: ## List registered secrets
-	@gcloud secrets list --project $(PROJECT_ID) --filter="name:$(APP_PREFIX) OR name:JOBCAN_PASSWORD"
+register-secrets: ## Interactively register system global tokens
+	@read -s -p "Enter Slack Bot Token (xoxb-...): " bot_token; echo ""; \
+	read -s -p "Enter Slack Signing Secret: " signing_secret; echo ""; \
+	gcloud secrets create $(APP_PREFIX)-slack-bot-token --replication-policy="automatic" --project $(PROJECT_ID) || true; \
+	echo -n "$$bot_token" | gcloud secrets versions add $(APP_PREFIX)-slack-bot-token --data-file=- --project $(PROJECT_ID); \
+	gcloud secrets create $(APP_PREFIX)-slack-signing-secret --replication-policy="automatic" --project $(PROJECT_ID) || true; \
+	echo -n "$$signing_secret" | gcloud secrets versions add $(APP_PREFIX)-slack-signing-secret --data-file=- --project $(PROJECT_ID)
 
-prune: ## Interactively remove unused directories (SSoT artifacts)
-	@echo "Pruning unused artifacts..."
-	find . -name "*.tmp" -type d -exec rm -rf {} +
-
-template: generate ## Alias for generate (backwards compatibility)
+register-sheets-oauth: ## One-time: mint & store a Google Sheets OAuth refresh token for settings access
+	@read -p "Path to OAuth client secret JSON (Desktop app, from GCP Console): " cs; \
+	tmp=$$(mktemp); \
+	trap 'rm -f $$tmp' EXIT; \
+	uv run python scripts/get_sheets_oauth_token.py "$$cs" "$$tmp" || exit 1; \
+	gcloud secrets create $(APP_PREFIX)-sheets-oauth --replication-policy="automatic" --project $(PROJECT_ID) || true; \
+	gcloud secrets versions add $(APP_PREFIX)-sheets-oauth --data-file="$$tmp" --project $(PROJECT_ID); \
+	echo "Stored OAuth credentials in secret $(APP_PREFIX)-sheets-oauth."

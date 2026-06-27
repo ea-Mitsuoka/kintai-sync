@@ -9,6 +9,7 @@ class HistoryManager:
         self.db = firestore.Client(project=project_id)
         self.tasks_collection = "tasks"
         self.users_collection = "users"
+        self.sync_meta_collection = "sync_meta"
 
     def get_task_status(self, client_msg_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -58,3 +59,21 @@ class HistoryManager:
         Saves user-specific settings to Firestore.
         """
         self.db.collection(self.users_collection).document(user_id).set(settings, merge=True)
+
+    def get_users_synced_at(self) -> Optional[float]:
+        """
+        Returns the epoch timestamp of the last full settings sync, or None if
+        the spreadsheet has never been synced into Firestore.
+        """
+        doc = self.db.collection(self.sync_meta_collection).document("users").get()
+        if doc.exists:
+            return doc.to_dict().get("synced_at")
+        return None
+
+    def set_users_synced_at(self, timestamp: float):
+        """
+        Records the epoch timestamp of the most recent full settings sync.
+        """
+        self.db.collection(self.sync_meta_collection).document("users").set(
+            {"synced_at": timestamp}
+        )

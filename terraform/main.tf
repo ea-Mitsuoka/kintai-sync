@@ -24,17 +24,12 @@ resource "google_service_account" "worker_sa" {
   display_name = "SA for Kintai Sync Worker"
 }
 
-resource "google_service_account" "sync_sa" {
-  account_id   = "${var.app_prefix}-sync-sa"
-  display_name = "SA for Kintai Sync Settings Sync"
-}
-
 # 3. Firestore (Default Database)
 resource "google_firestore_database" "database" {
   name        = "(default)"
   location_id = var.region
   type        = "FIRESTORE_NATIVE"
-  
+
   # Ensure it doesn't get deleted easily if data is precious, 
   # but here we follow user's destroy request.
   deletion_policy = "DELETE"
@@ -51,10 +46,10 @@ resource "google_cloud_tasks_queue" "queue" {
   }
 
   retry_config {
-    max_attempts       = 5
-    max_backoff        = "3600s"
-    min_backoff        = "10s"
-    max_doublings      = 5
+    max_attempts  = 5
+    max_backoff   = "3600s"
+    min_backoff   = "10s"
+    max_doublings = 5
   }
 }
 

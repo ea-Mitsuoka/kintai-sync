@@ -4,7 +4,7 @@ resource "google_artifact_registry_repository" "repo" {
   repository_id = "${var.app_prefix}-repo"
   description   = "Docker repository for Kintai Sync services"
   format        = "DOCKER"
-  
+
   # Ensure images are deleted when repo is destroyed
   cleanup_policies {
     id     = "delete-old-images"
@@ -30,6 +30,15 @@ resource "google_secret_manager_secret" "slack_bot_token" {
 
 resource "google_secret_manager_secret" "slack_signing_secret" {
   secret_id = "${var.app_prefix}-slack-signing-secret"
+  replication {
+    auto {}
+  }
+}
+
+# OAuth refresh token (JSON) the Worker uses to read the settings spreadsheet
+# as an authorized user. Populated via `make register-sheets-oauth`.
+resource "google_secret_manager_secret" "sheets_oauth" {
+  secret_id = "${var.app_prefix}-sheets-oauth"
   replication {
     auto {}
   }
