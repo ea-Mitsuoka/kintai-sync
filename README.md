@@ -1,33 +1,33 @@
 # kintai-sync
 
-Automated attendance management system triggered by Slack messages.
+Slack メッセージをトリガーとした勤怠管理自動化システム。
 
-## Overview
+## 概要
 
-`kintai-sync` is a system designed to automate repetitive attendance-related tasks. By posting a single message to a Slack channel (e.g., "Taking a paid leave tomorrow"), the system automatically:
+`kintai-sync` は、日々の煩雑な勤怠連絡とそれに付随する事務作業を自動化するためのシステムです。Slack の特定チャンネルに「明日、有給休暇を取得します」といったメッセージを投稿するだけで、システムが以下の処理をすべて自動で実行します。
 
-1.  **Jobcan**: Submits a holiday or attendance application.
-2.  **Slack**: Posts a formatted report to the department channel.
-3.  **Google Calendar**: Registers the leave/attendance event on your calendar.
-4.  **Slack Status**: Updates your status and emoji automatically.
-5.  **Feedback**: Replies to your original Slack thread with the execution results.
+1.  **ジョブカン**: 休暇申請または勤務申請を自動提出
+2.  **Slack 報告**: 指定された事業部・部署チャンネルへフォーマットされた勤怠連絡を投稿
+3.  **Google カレンダー**: 自身のカレンダーに休暇や勤務予定を自動登録
+4.  **Slack ステータス**: プロフィールのステータスと絵文字を自動更新
+5.  **フィードバック**: 処理結果を元の Slack スレッドへ自動返信
 
-## Key Features
+## 主な機能
 
-- **Natural Language Processing**: Uses Vertex AI (Gemini 1.5 Flash) to parse dates and attendance types from free-text messages.
-- **Robust Architecture**: Built on Google Cloud (Cloud Run, Cloud Tasks, Firestore) for high reliability, scalability, and idempotency.
-- **Centralized Configuration**: All system settings are managed via `config.yaml`.
-- **User Personalization**: User-specific settings (working hours, staff codes) are managed in a Google Spreadsheet and synced to Firestore.
-- **Modern Tooling**: Managed with `uv` for Python and a comprehensive `Makefile` for infrastructure lifecycle.
+- **自然言語解析**: Vertex AI (Gemini 3 Flash Preview) を使用し、自由形式のテキストから日付や勤怠種別を正確に抽出。
+- **堅牢なアーキテクチャ**: Google Cloud (Cloud Run, Cloud Tasks, Firestore) を採用し、高い信頼性、スケーラビリティ、およびべき等性を確保。
+- **設定の一元管理**: `config.yaml` により、システム全体の動作をコード変更なしで調整可能。
+- **ユーザー別カスタマイズ**: 各ユーザーのスタッフコードや勤務時間は Google スプレッドシートで管理し、Firestore へ自動同期。
+- **モダンな開発環境**: `uv` による高速なパッケージ管理と、`Makefile` による一貫した運用コマンドを提供。
 
-## System Architecture
+## システム構成図
 
 ```mermaid
 graph TB
-    subgraph "External"
-        U["User"]
+    subgraph "外部サービス"
+        U["ユーザー"]
         Slack["Slack API"]
-        Jobcan["Jobcan"]
+        Jobcan["ジョブカン"]
         GCal["Google Calendar"]
         GSheet["Google Sheets"]
     end
@@ -52,50 +52,51 @@ graph TB
     GSheet --> Firestore
 ```
 
-## Getting Started
+## はじめに
 
-### Prerequisites
+### 前提条件
 
-- [uv](https://github.com/astral-sh/uv) installed.
-- Google Cloud SDK (`gcloud`) authenticated.
-- Terraform installed.
+- [uv](https://github.com/astral-sh/uv) がインストールされていること。
+- Google Cloud SDK (`gcloud`) が認証済みであること。
+- Terraform がインストールされていること。
 
-### Initial Setup (Bootstrap)
+### 初期構築 (ブートストラップ)
 
-Run the following command to create the backend bucket and setup IAM permissions:
+以下のコマンドを実行して、Terraform のバックエンドバケットの作成と IAM 権限の設定を行います。
 
 ```bash
 make setup
 ```
 
-### Configuration
+### 設定
 
-1.  Adjust settings in `config.yaml`.
-2.  Register required tokens in Secret Manager (e.g., `kintai-sync-slack-bot-token`).
-3.  Prepare your user settings spreadsheet (use `make template` for the format).
+1.  `config.yaml` を環境に合わせて調整します。
+2.  Secret Manager に必要なトークンを登録します（例: `kintai-sync-slack-bot-token`）。
+3.  ユーザー設定用の Google スプレッドシートを準備します（フォーマットは `make template` で生成可能）。
 
-### Deployment
+### デプロイ
 
 ```bash
 make deploy
 ```
 
-## Development
+## 開発・運用
 
-### Setup Environment
+### 環境構築
 
 ```bash
-# Setup python environment and playwright
+# 依存関係の同期とブラウザのインストール
 uv sync
 uv run playwright install chromium
 ```
 
-### Useful Commands
+### 便利なコマンド
 
-- `make test`: Run all unit tests.
-- `make lint`: Run linting and formatting.
-- `make logs`: View Cloud Run logs.
-- `make destroy`: Teardown all infrastructure and bootstrap resources.
+- **`make test`**: すべてのユニットテストを実行（カバレッジ計測付き）。
+- **`make lint`**: コードの静的解析とフォーマットを実行。
+- **`make logs`**: Cloud Run の最新実行ログを確認。
+- **`make register-user`**: ユーザーのパスワードを Secret Manager へ安全に登録。
+- **`make destroy`**: Terraform 管理下のリソースを削除（初期構築リソースは維持）。
 
 ---
-*Last updated: June 27, 2026*
+*最終更新日: 2026年6月27日*
