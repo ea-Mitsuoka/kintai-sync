@@ -8,6 +8,8 @@
 | --- | --- | --- | --- |
 | v1.0.0 | 2026年6月27日 | 開発プロジェクトチーム | 初版作成（Slackトリガー・Google Cloud構成対応） |
 | v2.0.0 | 2026年6月27日 | 開発プロジェクトチーム | アーキテクチャ刷新（Gemini API, Cloud Tasks, Firestore 採用による堅牢化とフィードバック機能の追加） |
+| v2.1.0 | 2026年6月27日 | 開発プロジェクトチーム | マルチユーザー対応およびユーザー別設定機能（午前休・午後休の時間定義等）の追加 |
+| v2.2.0 | 2026年6月27日 | 開発プロジェクトチーム | Googleスプレッドシートによる設定管理およびFirestoreへの同期機能、Terraform標準の追加 |
 
 ---
 
@@ -18,6 +20,8 @@
 現在、社内における出退勤および休暇時の連絡業務は、複数の異なるアプリケーション（ジョブカン、Slack、Googleカレンダー）に対して手動で個別に実施されている。特に休暇取得時やフレックス勤務の利用時には、上司への報告、部門全体への周知、自身のカレンダー予定の確保、Slackのステータス変更など、経由するシステムと操作ステップが多岐にわたり、従業員にとって多大な業務負荷および転記ミス・連絡漏れのリスクとなっている。
 
 この課題を解決するため、従業員が日常的に利用するSlackへの1通の投稿をトリガーとし、関連するすべての勤怠処理を一括で自動実行するシステム `kintai-sync` を構築する。
+
+また、本システムを複数のユーザーが利用する場合、ユーザーごとに「午前休」や「午後休」の勤務時間定義が異なる場合があり、個別のカスタマイズが必要となる。これらの設定は、管理者やユーザーが容易に編集・閲覧できるよう、**Googleスプレッドシート**をマスターデータとして管理し、システムのパフォーマンス維持のために**Firestore**へ自動同期する。
 
 ### 2.2. 目的
 
@@ -80,6 +84,7 @@ graph TB
         Slack["Slack API"]
         Jobcan["ジョブカン"]
         GCal["Google Calendar"]
+        GSheet["Google Sheets: Master Settings"]
     end
 
     subgraph "Google Cloud Project"
@@ -90,11 +95,12 @@ graph TB
         subgraph "Messaging & Logic Layer"
             Tasks["Cloud Tasks: Queue"]
             Worker["Cloud Run: Worker"]
+            Sync["Cloud Run: Sync Logic"]
             LLM["Vertex AI: Gemini API"]
         end
 
         subgraph "Security, State & Ops"
-            Firestore["Firestore: Task History"]
+            Firestore["Firestore: History & User Settings (Cache)"]
             GCS["GCS: Screenshot Log"]
             Secret["Secret Manager"]
             Logging["Cloud Logging"]
@@ -103,6 +109,8 @@ graph TB
 
     U -->|"投稿"| Slack
     Slack -->|"Event Webhook"| Receiver
+    GSheet -->|"Update"| Sync
+    Sync -->|"Sync Data"| Firestore
     Receiver -->|"Create Task"| Tasks
     Tasks -->|"Push Dispatch"| Worker
 
@@ -116,6 +124,7 @@ graph TB
 
     Receiver -.->|"Logs"| Logging
     Worker -.->|"Logs"| Logging
+    Sync -.->|"Logs"| Logging
 ```
 
 ### 3.4. システムシーケンス
@@ -257,6 +266,31 @@ sequenceDiagram
 
 
 
+### 4.7. マルチユーザー・パーソナライズ設定機能（v2.2.0更新）
+
+* **【FR-7.1】マスターデータの外部化（Googleスプレッドシート）**
+* システムの設定値（ユーザーID、勤務時間定義等）のマスターデータは、専用のGoogleスプレッドシートで管理する。
+
+
+* **【FR-7.2】Firestoreへの自動同期ロジック**
+* スプレッドシートの更新をトリガー、または定期実行によってFirestoreの `users` コレクションへ同期する。
+* 実行時のパフォーマンス低下を防ぐため、Workerは原則としてFirestore側のデータ（キャッシュ）を参照する。
+
+
+* **【FR-7.3】ユーザー別勤務時間定義**
+* 以下の項目をスプレッドシート上でユーザーごとに設定可能とする。
+1. **slack_user_id**: SlackのメンバーID（キー）
+2. **morning_off_start / morning_off_end**: 午前休時の勤務時間（例：09:00〜13:00）
+3. **afternoon_off_start / afternoon_off_end**: 午後休時の勤務時間（例：14:00〜18:00）
+4. **working_hours_start / working_hours_end**: 通常の勤務時間（例：09:00〜18:00）
+5. **timezone**: ユーザーのタイムゾーン（デフォルト：Asia/Tokyo）
+
+
+* **【FR-7.4】設定の自動適用**
+* メッセージ解析後、投稿したユーザーの設定を Firestore から取得し、Googleカレンダーへの登録時間等に反映する。設定が存在しない場合は、システムデフォルト値を使用する。
+
+
+
 ---
 
 ## 5. 非機能要件
@@ -287,7 +321,16 @@ sequenceDiagram
 
 ### 5.4. 運用・保守性
 
-* **【NFR-4.1】インフラのコード化** (Terraform)
+* **【NFR-4.1】インフラのコード化 (Terraform)**
+* すべてのリソースは Terraform で管理し、`terraform destroy` によって全リソースが完全に削除可能となるよう設計する。
+* **命名規則**: 識別性を高めるため、すべての主要リソースに `kintai-sync-` プレフィックスを付与する。
+  * サービスアカウント例: `kintai-sync-worker-sa`
+  * バックエンドバケット例: `kintai-sync-tfstate-[PROJECT_ID]`
+* **削除ポリシー**: 
+  * GCSバケットには `force_destroy = true` を設定し、コンテンツが存在しても削除可能とする。
+  * 削除時に残存しやすいリソース（Secret Managerの削除猶予等）は、Terraform側で即時削除されるよう設定を明示する。
+
+
 * **【NFR-4.2】初期構築の自動化**
 * **【NFR-4.3】一元的なログ管理**
 * **【NFR-4.4】視覚的なエラー追跡 (v2.0.0)**
@@ -310,8 +353,9 @@ sequenceDiagram
 * **Event API / Web API (chat.postMessage / users.profile.set)** に加え、スレッド返信用の `thread_ts` 指定を利用する。
 
 ### 6.2. Google Calendar API 連携
-### 6.3. ジョブカン Web インターフェース
-### 6.4. Vertex AI (Gemini) API
+### 6.3. Google Sheets API 連携
+### 6.4. ジョブカン Web インターフェース
+### 6.5. Vertex AI (Gemini) API
 * メッセージ解析用の自然言語インターフェース。
 
 ---

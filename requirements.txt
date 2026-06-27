@@ -1,0 +1,12 @@
+google-cloud-secret-manager
+google-cloud-firestore
+google-cloud-tasks
+google-cloud-storage
+google-cloud-aiplatform
+slack_sdk
+google-api-python-client
+google-auth
+playwright
+flask
+pydantic
+python-dotenv
