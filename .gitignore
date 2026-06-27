@@ -39,3 +39,4 @@ change.patch
 tests/test.sql
 configs/
 bk/
+.coverage
