@@ -5,7 +5,7 @@ TF_STATE_BUCKET ?= kintai-sync-tfstate-$(PROJECT_ID)
 TF_SA_NAME ?= kintai-sync-terraform-sa
 TF_SA_EMAIL ?= $(TF_SA_NAME)@$(PROJECT_ID).iam.gserviceaccount.com
 
-.PHONY: help setup check generate lint opa test plan deploy prune template
+.PHONY: help setup check generate lint opa test plan deploy destroy prune template logs secrets
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -27,8 +27,8 @@ setup: ## Initial setup (create tfstate bucket, SA, and IAM roles)
 	@if ! gcloud iam service-accounts describe $(TF_SA_EMAIL) --project $(PROJECT_ID) >/dev/null 2>&1; then \
 		echo "Creating Service Account $(TF_SA_NAME)..."; \
 		gcloud iam service-accounts create $(TF_SA_NAME) \
-			--display-name "Terraform Execution Account" \
-			--project $(PROJECT_ID); \
+			--project $(PROJECT_ID) \
+			--display-name "Terraform Execution Account"; \
 	else \
 		echo "Service Account already exists."; \
 	fi
@@ -75,6 +75,33 @@ plan: ## Preview infrastructure changes
 
 deploy: ## Deploy the infrastructure
 	cd terraform && terraform apply -var="project_id=$(PROJECT_ID)" -auto-approve
+
+destroy: ## Completely destroy all infrastructure including bootstrap resources
+	@echo "--- Step 1: Terraform Destroy ---"
+	cd terraform && terraform destroy -var="project_id=$(PROJECT_ID)" -auto-approve
+	
+	@echo "--- Step 2: Removing IAM Bindings for SA ---"
+	@for role in roles/editor roles/secretmanager.admin roles/iam.serviceAccountAdmin roles/resourcemanager.projectIamAdmin roles/storage.admin; do \
+		echo "Removing $$role..."; \
+		gcloud projects remove-iam-policy-binding $(PROJECT_ID) \
+			--member="serviceAccount:$(TF_SA_EMAIL)" \
+			--role="$$role" \
+			--quiet >/dev/null || true; \
+	done
+
+	@echo "--- Step 3: Deleting Service Account ---"
+	@gcloud iam service-accounts delete $(TF_SA_EMAIL) --project $(PROJECT_ID) --quiet || true
+
+	@echo "--- Step 4: Deleting TF State Bucket ---"
+	@gsutil rm -r gs://$(TF_STATE_BUCKET) || true
+	@echo "Infrastructure and bootstrap resources destroyed."
+
+logs: ## View recent application logs
+	@echo "Fetching logs for 'kintai-sync' services..."
+	gcloud logging read "resource.type=(cloud_run_revision) AND resource.labels.service_name:(kintai-sync)" --limit 50 --format="table(timestamp,textPayload)"
+
+secrets: ## List registered secrets
+	@gcloud secrets list --project $(PROJECT_ID) --filter="name:kintai-sync"
 
 prune: ## Interactively remove unused directories (SSoT artifacts)
 	@echo "Pruning unused artifacts..."
