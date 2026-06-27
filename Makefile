@@ -6,7 +6,7 @@ TF_SA_NAME ?= kintai-sync-terraform-sa
 TF_SA_EMAIL ?= $(TF_SA_NAME)@$(PROJECT_ID).iam.gserviceaccount.com
 APP_PREFIX ?= kintai-sync
 
-.PHONY: help setup check generate lint opa test plan deploy destroy prune template logs secrets register-user
+.PHONY: help setup check generate lint opa test plan deploy destroy destroy-all prune template logs secrets register-user
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -77,7 +77,11 @@ plan: ## Preview infrastructure changes
 deploy: ## Deploy the infrastructure
 	cd terraform && terraform apply -var="project_id=$(PROJECT_ID)" -auto-approve
 
-destroy: ## Completely destroy all infrastructure including bootstrap resources
+destroy: ## Destroy infrastructure managed by Terraform (preserves bootstrap resources)
+	@echo "--- Running Terraform Destroy ---"
+	cd terraform && terraform destroy -var="project_id=$(PROJECT_ID)" -auto-approve
+
+destroy-all: ## Completely destroy everything including bootstrap resources (bucket, SA, roles)
 	@echo "--- Step 1: Terraform Destroy ---"
 	cd terraform && terraform destroy -var="project_id=$(PROJECT_ID)" -auto-approve
 	
