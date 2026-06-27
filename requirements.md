@@ -66,7 +66,55 @@ graph TD
     end
 ```
 
-### 3.3. システムシーケンス
+### 3.3. システムアーキテクチャ図
+
+本システムのGoogle Cloud上での物理構成を以下に示す。
+
+```mermaid
+graph TB
+    subgraph "External"
+        U["ユーザー"]
+        Slack["Slack API"]
+        Jobcan["ジョブカン"]
+        GCal["Google Calendar"]
+    end
+
+    subgraph "Google Cloud Project"
+        subgraph "Ingress Layer"
+            Receiver["Cloud Run: Receiver"]
+        end
+
+        subgraph "Messaging Layer"
+            Topic["Cloud Pub/Sub: Topic"]
+            Sub["Cloud Pub/Sub: Subscription"]
+        end
+
+        subgraph "Worker Layer"
+            Worker["Cloud Run: Worker"]
+        end
+
+        subgraph "Security & Ops"
+            Secret["Secret Manager"]
+            Logging["Cloud Logging"]
+        end
+    end
+
+    U -->|"投稿"| Slack
+    Slack -->|"Event Webhook"| Receiver
+    Receiver -->|"Publish"| Topic
+    Topic --> Sub
+    Sub -->|"Push"| Worker
+
+    Worker -->|"Access Secrets"| Secret
+    Worker -->|"Scraping"| Jobcan
+    Worker -->|"Web API"| Slack
+    Worker -->|"Web API"| GCal
+
+    Receiver -.->|"Logs"| Logging
+    Worker -.->|"Logs"| Logging
+```
+
+### 3.4. システムシーケンス
 
 外部接続APIの制限（特にSlack Event APIの3秒タイムアウト制限）をクリアするための、非同期分散処理シーケンスである。
 
@@ -315,55 +363,7 @@ sequenceDiagram
 
 ---
 
-## 8. システムアーキテクチャ図
-
-本システムのGoogle Cloud上での物理構成を以下に示す。
-
-```mermaid
-graph TB
-    subgraph "External"
-        U["ユーザー"]
-        Slack["Slack API"]
-        Jobcan["ジョブカン"]
-        GCal["Google Calendar"]
-    end
-
-    subgraph "Google Cloud Project"
-        subgraph "Ingress Layer"
-            Receiver["Cloud Run: Receiver"]
-        end
-
-        subgraph "Messaging Layer"
-            Topic["Cloud Pub/Sub: Topic"]
-            Sub["Cloud Pub/Sub: Subscription"]
-        end
-
-        subgraph "Worker Layer"
-            Worker["Cloud Run: Worker"]
-        end
-
-        subgraph "Security & Ops"
-            Secret["Secret Manager"]
-            Logging["Cloud Logging"]
-        end
-    end
-
-    U -->|"投稿"| Slack
-    Slack -->|"Event Webhook"| Receiver
-    Receiver -->|"Publish"| Topic
-    Topic --> Sub
-    Sub -->|"Push"| Worker
-
-    Worker -->|"Access Secrets"| Secret
-    Worker -->|"Scraping"| Jobcan
-    Worker -->|"Web API"| Slack
-    Worker -->|"Web API"| GCal
-
-    Receiver -.->|"Logs"| Logging
-    Worker -.->|"Logs"| Logging
-```
-
-## 9. 運用インフラコスト見積もり（概算）
+## 8. 運用インフラコスト見積もり（概算）
 
 従業員100名程度の規模で、1日200回程度の実行を想定した月額コストの試算である。Google Cloudの無料枠（Free Tier）を最大限活用することで、極めて低コストでの運用が可能である。
 
