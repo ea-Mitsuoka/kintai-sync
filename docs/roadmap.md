@@ -27,7 +27,7 @@
 - [x] 外部連携モジュールの設定値外部化
 - [x] Firestore 連携・履歴管理の実装 (`src/history.py`)
 - [x] Secret Manager 連携モジュールの実装 (`src/secrets.py`)
-- [x] Googleスプレッドシート同期ロジックの実装 (`src/sync.py`)
+- [x] Googleスプレッドシート同期ロジックの実装 (`src/sync.py`、Worker からの遅延読み込みキャッシュとして利用)
 - [x] 各種外部連携モジュールの実装 (`slack.py`, `calendar.py`, `jobcan.py`)
 
 ## フェーズ 3: コアロジック（メッセージ解析と外部連携）の実装
@@ -40,7 +40,7 @@
 
 - [x] 各サービスの Dockerfile 作成 (`Dockerfile.*`)
 - [x] Cloud Run デプロイ設定 (Terraform)
-- [x] イベントベース同期の設定 (GAS 連携用 Webhook)
+- [x] 設定同期方式の決定（GAS / Cloud Scheduler を廃止し、Worker による遅延読み込みキャッシュへ移行）
 
 ## フェーズ 5: テスト・品質保証
 
@@ -61,7 +61,10 @@
   - [ ] `kintai-sync-slack-bot-token`
   - [ ] `kintai-sync-slack-signing-secret`
   - [ ] `JOBCAN_PASSWORD_[staff_code]` (各ユーザー分)
-- [ ] **[連携]** スプレッドシートへの Google Apps Script の設定 (`google_apps_script.js`)
+- [ ] **[権限]** 設定スプレッドシート読み取り用 OAuth トークンの登録
+  - [ ] GCP コンソールで OAuth 2.0 クライアントID (Desktop app) を作成し client_secret を取得
+  - [ ] OAuth 同意画面を Internal に設定（リフレッシュトークンの失効回避）
+  - [ ] `make register-sheets-oauth` でトークンを Secret Manager に登録
 - [ ] **[権限]** Google Calendar API のドメイン全体の委任、または OAuth 認証の完了
 - [x] **[検証]** ユニットテストによるロジック検証 (`make test`)
 - [ ] **[検証]** 実際の Slack 投稿によるエンドツーエンドの疎通テスト

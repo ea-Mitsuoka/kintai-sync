@@ -1,33 +1,101 @@
+import json
 import os
-from google.cloud import firestore
+import time
 from googleapiclient.discovery import build
-from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
 from src.models import UserSettings
 from src.history import HistoryManager
+from src.secrets import get_secret
 from src.config import config
-from typing import List
+
+# Scopes for the Google Sheets API (read-only).
+SHEETS_SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+OAUTH_TOKEN_URI = "https://oauth2.googleapis.com/token"
+
 
 class SettingsSyncer:
+    """
+    Syncs user settings from a Google Spreadsheet into Firestore.
+
+    Used as a *lazy read-through cache* by the Worker: instead of a scheduled
+    job or a manual command, the Worker calls ``sync_if_stale()`` right before
+    it reads a user's settings. The spreadsheet is only fetched when the cached
+    snapshot in Firestore is older than ``sync.cache_ttl_seconds``.
+
+    The spreadsheet is owned by the e-agency Workspace, but its sharing policy
+    forbids granting access to the service account (``gserviceaccount.com`` is
+    treated as an external domain). So instead of sharing the file with the SA,
+    the Worker authenticates as an *authorized user* using an OAuth refresh
+    token stored in Secret Manager (``sync.oauth_secret_id``).
+    """
+
     def __init__(self, spreadsheet_id: str, project_id: str = None):
         self.spreadsheet_id = spreadsheet_id
+        self.project_id = project_id or os.getenv("GOOGLE_CLOUD_PROJECT")
         self.history_manager = HistoryManager(project_id)
-        
-        # Scopes for Google Sheets API
-        self.scopes = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-        self.service = self._build_service()
 
-    def _build_service(self):
-        """Builds the Google Sheets API service."""
-        # In Cloud Run, it uses the default service account automatically
-        # For local dev, it looks for GOOGLE_APPLICATION_CREDENTIALS
-        return build('sheets', 'v4', cache_discovery=False)
+        self.scopes = SHEETS_SCOPES
+        self._service = None
+
+    def _build_credentials(self):
+        """Build OAuth user credentials from the refresh token in Secret
+        Manager. Returns None if the secret is absent/invalid, in which case
+        the Sheets client falls back to Application Default Credentials
+        (useful for local development with GOOGLE_APPLICATION_CREDENTIALS)."""
+        secret_id = config.get("sync.oauth_secret_id")
+        if not secret_id:
+            return None
+
+        raw = get_secret(secret_id, self.project_id)
+        if not raw:
+            return None
+
+        try:
+            data = json.loads(raw)
+            return Credentials(
+                token=None,
+                refresh_token=data["refresh_token"],
+                client_id=data["client_id"],
+                client_secret=data["client_secret"],
+                token_uri=OAUTH_TOKEN_URI,
+                scopes=self.scopes,
+            )
+        except (ValueError, KeyError) as e:
+            print(f"Invalid OAuth secret '{secret_id}': {e}")
+            return None
+
+    @property
+    def service(self):
+        """Lazily build the Sheets API client (avoids network/credentials work
+        when the cache is fresh and no sync is needed)."""
+        if self._service is None:
+            credentials = self._build_credentials()
+            self._service = build(
+                'sheets', 'v4', credentials=credentials, cache_discovery=False
+            )
+        return self._service
+
+    def sync_if_stale(self, ttl_seconds: int = None) -> bool:
+        """
+        Refresh settings from the spreadsheet only if the cached snapshot is
+        older than ``ttl_seconds``. Returns True if a sync was performed.
+        """
+        if ttl_seconds is None:
+            ttl_seconds = config.get("sync.cache_ttl_seconds", 3600)
+
+        last_synced = self.history_manager.get_users_synced_at()
+        if last_synced is not None and (time.time() - last_synced) < ttl_seconds:
+            return False  # Cache is fresh; skip the Sheets read.
+
+        self.sync()
+        return True
 
     def sync(self, range_name: str = None):
         """
         Syncs data from Google Sheets to Firestore.
-        Expected columns: 
-        slack_user_id, jobcan_company_id, jobcan_staff_code, 
-        morning_off_start, morning_off_end, afternoon_off_start, afternoon_off_end, 
+        Expected columns:
+        slack_user_id, jobcan_company_id, jobcan_staff_code,
+        morning_off_start, morning_off_end, afternoon_off_start, afternoon_off_end,
         working_hours_start, working_hours_end, timezone
         """
         if range_name is None:
@@ -39,6 +107,8 @@ class SettingsSyncer:
 
         if not values:
             print('No data found in spreadsheet.')
+            # Still record the sync attempt so we don't re-read every message.
+            self.history_manager.set_users_synced_at(time.time())
             return
 
         synced_count = 0
@@ -60,33 +130,11 @@ class SettingsSyncer:
                     working_hours_end=row[8] if len(row) > 8 else config.get("sync.defaults.working_hours_end"),
                     timezone=row[9] if len(row) > 9 else config.get("sync.defaults.timezone")
                 )
-                
+
                 self.history_manager.set_user_settings(settings.slack_user_id, settings.dict())
                 synced_count += 1
             except Exception as e:
                 print(f"Error syncing row {row}: {e}")
 
+        self.history_manager.set_users_synced_at(time.time())
         print(f"Successfully synced {synced_count} users to Firestore.")
-
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
-@app.route("/sync", methods=["POST"])
-def sync_endpoint():
-    """HTTP endpoint to trigger the sync process."""
-    spreadsheet_id = os.getenv("SETTINGS_SPREADSHEET_ID")
-    if not spreadsheet_id:
-        return jsonify({"error": "SETTINGS_SPREADSHEET_ID not set"}), 500
-    
-    try:
-        syncer = SettingsSyncer(spreadsheet_id)
-        syncer.sync()
-        return jsonify({"status": "success"}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-if __name__ == "__main__":
-    # For local testing
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)

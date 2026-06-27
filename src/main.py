@@ -7,6 +7,7 @@ from src.secrets import get_secret, get_jobcan_password
 from src.jobcan import JobcanManager
 from src.slack import SlackManager
 from src.calendar import CalendarManager
+from src.sync import SettingsSyncer
 from src.models import TaskExecutionState, SubTaskStatus
 from src.config import config
 from datetime import datetime
@@ -39,7 +40,17 @@ async def worker():
     except Exception as e:
         return jsonify({"status": "parse_error", "error": str(e)}), 400
 
-    # 3. Get User Settings
+    # 3. Get User Settings (lazy read-through cache)
+    # Refresh from the spreadsheet only when the cached snapshot is stale.
+    # This replaces the old GAS webhook / manual `make sync` / Cloud Scheduler.
+    spreadsheet_id = os.getenv("SETTINGS_SPREADSHEET_ID")
+    if spreadsheet_id:
+        try:
+            SettingsSyncer(spreadsheet_id).sync_if_stale()
+        except Exception as e:
+            # Never fail the task because of a settings refresh; fall back to
+            # whatever is already cached in Firestore.
+            print(f"Settings refresh skipped: {e}")
     user_settings = history_manager.get_user_settings(user_id)
     
     # Initialize execution state

@@ -29,6 +29,16 @@ calendar:
 
 sync:
   default_range: "Sheet1!A2:I"
+  # Lazy read-through cache: the Worker refreshes user settings from the
+  # spreadsheet only when the cached snapshot is older than this many seconds.
+  # No GAS, no manual command, no Cloud Scheduler required.
+  cache_ttl_seconds: 3600
+  # The spreadsheet lives in a Workspace whose policy blocks sharing files with
+  # the service account (gserviceaccount.com counts as an external domain). So
+  # the Worker reads the sheet as an authorized *user* via an OAuth refresh
+  # token stored in this Secret Manager secret (JSON: client_id, client_secret,
+  # refresh_token). If the secret is absent, it falls back to ADC (local dev).
+  oauth_secret_id: "kintai-sync-sheets-oauth"
   defaults:
     morning_off_start: "09:00"
     morning_off_end: "13:00"

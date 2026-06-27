@@ -41,6 +41,38 @@ def test_get_task_status_found(mock_firestore):
     assert status["status"] == "success"
 
 @patch("google.cloud.firestore.Client")
+def test_get_users_synced_at_found(mock_firestore):
+    mock_doc = MagicMock()
+    mock_doc.exists = True
+    mock_doc.to_dict.return_value = {"synced_at": 1700000000.0}
+    mock_firestore.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
+
+    manager = HistoryManager(project_id="test-project")
+    assert manager.get_users_synced_at() == 1700000000.0
+
+
+@patch("google.cloud.firestore.Client")
+def test_get_users_synced_at_missing(mock_firestore):
+    mock_doc = MagicMock()
+    mock_doc.exists = False
+    mock_firestore.return_value.collection.return_value.document.return_value.get.return_value = mock_doc
+
+    manager = HistoryManager(project_id="test-project")
+    assert manager.get_users_synced_at() is None
+
+
+@patch("google.cloud.firestore.Client")
+def test_set_users_synced_at(mock_firestore):
+    mock_doc_ref = MagicMock()
+    mock_firestore.return_value.collection.return_value.document.return_value = mock_doc_ref
+
+    manager = HistoryManager(project_id="test-project")
+    manager.set_users_synced_at(1700000000.0)
+
+    mock_doc_ref.set.assert_called_once_with({"synced_at": 1700000000.0})
+
+
+@patch("google.cloud.firestore.Client")
 def test_update_task_status(mock_firestore):
     mock_doc_ref = MagicMock()
     mock_firestore.return_value.collection.return_value.document.return_value = mock_doc_ref
