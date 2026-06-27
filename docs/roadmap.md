@@ -8,15 +8,22 @@
 
 ## フェーズ 1: プロジェクト初期化と基盤構築
 
-- [x] 要件定義の策定 (v2.2.0)
-- [x] 依存ライブラリの定義 (`requirements.txt`)
+- [x] 要件定義の策定 (v2.3.0)
+- [x] パッケージマネージャーの移行 (`requirements.txt` -> `uv`)
+- [x] 依存ライブラリの定義 (`pyproject.toml`)
+- [x] システム設定の一元管理化 (`config.yaml`, `src/config.py`)
 - [x] Terraform ベース構成の作成 (`terraform/*.tf`)
   - [x] API有効化 / SA定義 / Firestore / Cloud Tasks
   - [x] Artifact Registry / Secret Manager 定義
   - [x] 削除ポリシーの徹底 (`force_destroy`, `deletion_policy`)
-- [ ] [インフラ] 状態管理用バケットの作成 (`kintai-sync-tfstate-*`)
+- [x] **[基盤]** ライフサイクル自動化コマンドの構築 (`Makefile`)
+  - [x] ブートストラップ自動化 (`make setup`)
+  - [x] ログ確認・管理コマンド (`make logs`, `make secrets`)
+  - [x] インフラ一括破棄 (`make destroy`)
 
 ## フェーズ 2: 共通モジュール・設定管理の実装
+...
+- [x] 外部連携モジュールの設定値外部化
 
 - [x] Firestore 連携・履歴管理の実装 (`src/history.py`)
 - [x] Secret Manager 連携モジュールの実装 (`src/secrets.py`)
