@@ -2,14 +2,19 @@
 PROJECT_ID ?= $(shell gcloud config get-value project 2>/dev/null)
 REGION ?= asia-northeast1
 TF_STATE_BUCKET ?= kintai-sync-tfstate-$(PROJECT_ID)
+TF_SA_NAME ?= kintai-sync-terraform-sa
+TF_SA_EMAIL ?= $(TF_SA_NAME)@$(PROJECT_ID).iam.gserviceaccount.com
 
 .PHONY: help setup check generate lint opa test plan deploy prune template
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-setup: ## Initial setup (create tfstate bucket and project preparation)
-	@echo "Checking if bucket gs://$(TF_STATE_BUCKET) exists..."
+setup: ## Initial setup (create tfstate bucket, SA, and IAM roles)
+	@echo "--- Step 1: Enabling necessary Bootstrap APIs ---"
+	gcloud services enable cloudresourcemanager.googleapis.com iam.googleapis.com serviceusage.googleapis.com --project $(PROJECT_ID)
+	
+	@echo "--- Step 2: Checking/Creating TF State Bucket: gs://$(TF_STATE_BUCKET) ---"
 	@if ! gsutil ls -b gs://$(TF_STATE_BUCKET) >/dev/null 2>&1; then \
 		echo "Creating bucket gs://$(TF_STATE_BUCKET)..."; \
 		gsutil mb -l $(REGION) gs://$(TF_STATE_BUCKET); \
@@ -17,6 +22,27 @@ setup: ## Initial setup (create tfstate bucket and project preparation)
 	else \
 		echo "Bucket already exists."; \
 	fi
+
+	@echo "--- Step 3: Checking/Creating Terraform Service Account: $(TF_SA_NAME) ---"
+	@if ! gcloud iam service-accounts describe $(TF_SA_EMAIL) --project $(PROJECT_ID) >/dev/null 2>&1; then \
+		echo "Creating Service Account $(TF_SA_NAME)..."; \
+		gcloud iam service-accounts create $(TF_SA_NAME) \
+			--display-name "Terraform Execution Account" \
+			--project $(PROJECT_ID); \
+	else \
+		echo "Service Account already exists."; \
+	fi
+
+	@echo "--- Step 4: Granting IAM Roles to $(TF_SA_NAME) ---"
+	@for role in roles/editor roles/secretmanager.admin roles/iam.serviceAccountAdmin roles/resourcemanager.projectIamAdmin roles/storage.admin; do \
+		echo "Granting $$role..."; \
+		gcloud projects add-iam-policy-binding $(PROJECT_ID) \
+			--member="serviceAccount:$(TF_SA_EMAIL)" \
+			--role="$$role" \
+			--quiet >/dev/null; \
+	done
+
+	@echo "--- Step 5: Initializing Terraform ---"
 	cd terraform && terraform init -backend-config="bucket=$(TF_STATE_BUCKET)"
 
 check: ## Pre-flight check for GCP permissions, billing, and APIs
