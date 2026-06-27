@@ -80,3 +80,39 @@ resource "google_cloud_run_v2_service" "worker" {
     }
   }
 }
+
+resource "google_cloud_run_v2_service" "sync" {
+  name     = "${var.app_prefix}-sync"
+  location = var.region
+  ingress  = "INGRESS_TRAFFIC_ALL" # Invoked by Google Apps Script
+
+  template {
+    service_account = google_service_account.sync_sa.email
+    containers {
+      image = "asia-northeast1-docker.pkg.dev/${var.project_id}/${var.app_prefix}-repo/sync:latest"
+      env {
+        name  = "GOOGLE_CLOUD_PROJECT"
+        value = var.project_id
+      }
+      env {
+        name  = "SETTINGS_SPREADSHEET_ID"
+        value = "placeholder-id"
+      }
+    }
+  }
+}
+
+# 5. Public Access (Receiver & Sync)
+resource "google_cloud_run_v2_service_iam_member" "receiver_public" {
+  location = google_cloud_run_v2_service.receiver.location
+  name     = google_cloud_run_v2_service.receiver.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}
+
+resource "google_cloud_run_v2_service_iam_member" "sync_public" {
+  location = google_cloud_run_v2_service.sync.location
+  name     = google_cloud_run_v2_service.sync.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
+}

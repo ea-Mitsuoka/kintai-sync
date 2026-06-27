@@ -34,12 +34,14 @@
 - [x] Cloud Tasks キューの定義 (Terraform)
 - [x] 各サービスの Cloud Run デプロイ設定 (Terraform)
 - [x] IAM 権限 (Roles) の詳細設定 (Terraform)
-- [x] 定期実行設定 (Cloud Scheduler / 同期ロジック用)
+- [x] イベントベース同期の設定 (GSheet App Script 連携用 Webhook)
 
 ## フェーズ 5: テスト・品質保証
 - [x] 各モジュールのユニットテスト作成 (`tests/`)
+- [x] テストカバレッジの検証 (81% 達成)
 - [ ] 疎通テスト（Slack -> Cloud Run -> Cloud Tasks -> Worker）
 - [x] 冪等性（二重実行防止）の検証 (Firestore設計による)
+
 
 
 ## フェーズ 6: デプロイ・運用準備

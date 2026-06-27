@@ -1,9 +1,9 @@
-import os
-import json
 from google.cloud import aiplatform
-from vertexai.generative_models import GenerativeModel, ResponseSchema, StructuredOutputType
+from vertexai.generative_models import GenerativeModel, GenerationConfig
 from datetime import date, datetime
 from src.models import AttendanceInfo
+import json
+import os
 
 class MessageParser:
     def __init__(self, project_id: str = None, location: str = "us-central1"):
@@ -32,11 +32,12 @@ class MessageParser:
         """
 
         try:
-            response = self.model.generate_content(prompt)
-            # Simplified parsing of the response text to JSON
-            # In a real app, use response_schema for stricter output
-            content = response.text.strip().replace("```json", "").replace("```", "")
-            data = json.loads(content)
+            # Request JSON output
+            response = self.model.generate_content(
+                prompt,
+                generation_config=GenerationConfig(response_mime_type="application/json")
+            )
+            data = json.loads(response.text)
             
             return AttendanceInfo(
                 target_date=data["target_date"],
@@ -46,5 +47,4 @@ class MessageParser:
             )
         except Exception as e:
             print(f"Error parsing message with Gemini: {e}")
-            # Fallback or re-raise
             raise

@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 from datetime import date
 from src.parser import MessageParser
 
-@patch("google.cloud.aiplatform.init")
-@patch("vertexai.generative_models.GenerativeModel")
+@patch("src.parser.aiplatform.init")
+@patch("src.parser.GenerativeModel")
 def test_parse_success(mock_model_class, mock_ai_init):
     mock_model = MagicMock()
     mock_response = MagicMock()

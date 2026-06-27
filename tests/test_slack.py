@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 from src.slack import SlackManager
 
-@patch("slack_sdk.WebClient")
+@patch("src.slack.WebClient")
 def test_post_attendance_report_success(mock_web_client):
     mock_instance = mock_web_client.return_value
     mock_instance.chat_postMessage.return_value = {"ts": "1234.567"}
@@ -13,7 +13,7 @@ def test_post_attendance_report_success(mock_web_client):
     assert ts == "1234.567"
     mock_instance.chat_postMessage.assert_called_once()
 
-@patch("slack_sdk.WebClient")
+@patch("src.slack.WebClient")
 def test_reply_to_thread(mock_web_client):
     mock_instance = mock_web_client.return_value
     manager = SlackManager(token="test-token")
