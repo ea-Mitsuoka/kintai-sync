@@ -2,6 +2,7 @@ import os
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 from datetime import datetime, timedelta
+from src.config import config
 
 class CalendarManager:
     def __init__(self, user_email: str):
@@ -22,21 +23,23 @@ class CalendarManager:
         """
         Registers an event in the user's primary calendar.
         """
+        timezone = config.get("calendar.timezone")
+        calendar_id = config.get("calendar.calendar_id")
         event = {
             'summary': summary,
             'description': description,
             'start': {
                 'dateTime': start_time.isoformat(),
-                'timeZone': 'Asia/Tokyo',
+                'timeZone': timezone,
             },
             'end': {
                 'dateTime': end_time.isoformat(),
-                'timeZone': 'Asia/Tokyo',
+                'timeZone': timezone,
             },
         }
 
         try:
-            event = self.service.events().insert(calendarId='primary', body=event).execute()
+            event = self.service.events().insert(calendarId=calendar_id, body=event).execute()
             print(f"Event created: {event.get('htmlLink')}")
             return event.get('id')
         except Exception as e:
@@ -47,7 +50,8 @@ class CalendarManager:
         """
         Deletes an event from the user's primary calendar.
         """
+        calendar_id = config.get("calendar.calendar_id")
         try:
-            self.service.events().delete(calendarId='primary', eventId=event_id).execute()
+            self.service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
         except Exception as e:
             print(f"Error deleting calendar event: {e}")

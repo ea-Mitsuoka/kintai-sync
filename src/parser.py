@@ -2,15 +2,18 @@ from google.cloud import aiplatform
 from vertexai.generative_models import GenerativeModel, GenerationConfig
 from datetime import date, datetime
 from src.models import AttendanceInfo
+from src.config import config
 import json
 import os
 
 class MessageParser:
-    def __init__(self, project_id: str = None, location: str = "us-central1"):
+    def __init__(self, project_id: str = None, location: str = None):
         if not project_id:
             project_id = os.getenv("GOOGLE_CLOUD_PROJECT")
+        if not location:
+            location = config.get("gcp.location")
         aiplatform.init(project=project_id, location=location)
-        self.model = GenerativeModel("gemini-1.5-flash")
+        self.model = GenerativeModel(config.get("gemini.model_name"))
 
     def parse(self, message: str, current_date: date = None) -> AttendanceInfo:
         """
@@ -19,17 +22,11 @@ class MessageParser:
         if not current_date:
             current_date = date.today()
 
-        prompt = f"""
-        Extract attendance information from the following Slack message.
-        Today's date is {current_date.isoformat()}.
-        
-        Message: "{message}"
-        
-        Output must be a JSON object with the following keys:
-        - target_date: ISO 8601 format (YYYY-MM-DD)
-        - attendance_type: One of "full_day", "morning_off", "afternoon_off", "late", "early", "flex"
-        - reason: Brief reason for the attendance change
-        """
+        prompt_template = config.get("gemini.prompt_template")
+        prompt = prompt_template.format(
+            current_date=current_date.isoformat(),
+            message=message
+        )
 
         try:
             # Request JSON output

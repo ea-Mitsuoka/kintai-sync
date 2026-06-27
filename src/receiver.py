@@ -5,6 +5,7 @@ import hmac
 import time
 from flask import Flask, request, jsonify
 from google.cloud import tasks_v2
+from src.config import config
 
 app = Flask(__name__)
 
@@ -48,8 +49,8 @@ def slack_events():
 
     # 3. Create Cloud Task
     project = os.getenv("GOOGLE_CLOUD_PROJECT")
-    queue = os.getenv("QUEUE_ID", "kintai-sync-queue")
-    location = os.getenv("REGION", "asia-northeast1")
+    queue = os.getenv("QUEUE_ID", config.get("gcp.queue_id"))
+    location = os.getenv("REGION", config.get("gcp.region"))
     url = os.getenv("WORKER_URL")
 
     client = tasks_v2.CloudTasksClient()

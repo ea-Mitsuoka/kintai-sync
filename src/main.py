@@ -8,6 +8,7 @@ from src.jobcan import JobcanManager
 from src.slack import SlackManager
 from src.calendar import CalendarManager
 from src.models import TaskExecutionState, SubTaskStatus
+from src.config import config
 from datetime import datetime
 
 app = Flask(__name__)
@@ -64,7 +65,12 @@ async def worker():
     
     # Slack Subtask (Post to Dept Channel)
     slack = SlackManager()
-    report_text = f"【勤怠連絡】{user_id}さん: {attendance_info.target_date} {attendance_info.attendance_type}"
+    report_format = config.get("slack.report_format")
+    report_text = report_format.format(
+        user_id=user_id,
+        target_date=attendance_info.target_date,
+        attendance_type=attendance_info.attendance_type
+    )
     # dept_channel_id = os.getenv("DEPT_CHANNEL_ID")
     # slack.post_attendance_report(dept_channel_id, report_text)
     execution_state.subtasks["slack_post"] = SubTaskStatus(success=True)
@@ -72,7 +78,8 @@ async def worker():
     # 5. Finalize and Feedback
     history_manager.update_task_status(client_msg_id, "success", execution_state.dict()["subtasks"])
     
-    feedback_text = "✅ 処理が完了しました。\n" + "\n".join([f"- {k}: {'✅' if v.success else '❌'}" for k, v in execution_state.subtasks.items()])
+    feedback_header = config.get("slack.feedback_header")
+    feedback_text = feedback_header + "\n" + "\n".join([f"- {k}: {'✅' if v.success else '❌'}" for k, v in execution_state.subtasks.items()])
     slack.reply_to_thread(channel_id, thread_ts, feedback_text)
 
     return jsonify({"status": "success"}), 200

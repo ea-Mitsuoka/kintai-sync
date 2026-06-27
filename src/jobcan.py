@@ -3,13 +3,14 @@ import asyncio
 from playwright.async_api import async_playwright
 from datetime import date
 from typing import Optional
+from src.config import config
 
 class JobcanManager:
     def __init__(self, company_id: str, staff_code: str, password: str):
         self.company_id = company_id
         self.staff_code = staff_code
         self.password = password
-        self.base_url = "https://ssl.jobcan.jp/employee"
+        self.base_url = config.get("jobcan.base_url")
 
     async def apply_holiday(self, target_date: date, attendance_type: str, reason: str) -> bool:
         """

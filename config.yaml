@@ -1,0 +1,39 @@
+gcp:
+  region: "asia-northeast1"
+  queue_id: "kintai-sync-queue"
+  location: "us-central1" # Vertex AI location
+
+gemini:
+  model_name: "gemini-1.5-flash"
+  prompt_template: |
+    Extract attendance information from the following Slack message.
+    Today's date is {current_date}.
+    
+    Message: "{message}"
+    
+    Output must be a JSON object with the following keys:
+    - target_date: ISO 8601 format (YYYY-MM-DD)
+    - attendance_type: One of "full_day", "morning_off", "afternoon_off", "late", "early", "flex"
+    - reason: Brief reason for the attendance change
+
+jobcan:
+  base_url: "https://ssl.jobcan.jp/employee"
+
+slack:
+  report_format: "【勤怠連絡】{user_id}さん: {target_date} {attendance_type}"
+  feedback_header: "✅ 処理が完了しました。"
+
+calendar:
+  timezone: "Asia/Tokyo"
+  calendar_id: "primary"
+
+sync:
+  default_range: "Sheet1!A2:I"
+  defaults:
+    morning_off_start: "09:00"
+    morning_off_end: "13:00"
+    afternoon_off_start: "14:00"
+    afternoon_off_end: "18:00"
+    working_hours_start: "09:00"
+    working_hours_end: "18:00"
+    timezone: "Asia/Tokyo"

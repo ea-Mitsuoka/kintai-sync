@@ -11,3 +11,4 @@ flask
 pydantic
 python-dotenv
 gunicorn
+PyYAML
