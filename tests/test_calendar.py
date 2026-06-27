@@ -1,27 +1,54 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from datetime import datetime
 from src.calendar import CalendarManager
+from datetime import datetime
 
-@patch("src.calendar.build")
-def test_register_event_success(mock_build):
-    mock_service = MagicMock()
-    mock_build.return_value = mock_service
-    mock_service.events.return_value.insert.return_value.execute.return_value = {"id": "ev_123", "htmlLink": "http://link"}
-    
-    manager = CalendarManager(user_email="test@example.com")
-    start = datetime(2026, 6, 27, 9, 0)
-    end = datetime(2026, 6, 27, 13, 0)
-    event_id = manager.register_event("Morning Off", start, end)
-    
-    assert event_id == "ev_123"
-    mock_service.events.return_value.insert.assert_called_once()
+@pytest.fixture
+def calendar_manager():
+    # Patch build globally during fixture to prevent real API calls
+    with patch("src.calendar.build") as mock_build:
+        manager = CalendarManager(user_email="test@example.com")
+        manager.mock_service = mock_build.return_value
+        yield manager
 
-@patch("src.calendar.build")
-def test_delete_event(mock_build):
-    mock_service = MagicMock()
-    mock_build.return_value = mock_service
-    manager = CalendarManager(user_email="test@example.com")
-    manager.delete_event("ev_123")
+def test_register_event_success(calendar_manager):
+    mock_events = calendar_manager.mock_service.events.return_value
+    mock_insert = mock_events.insert.return_value
+    mock_insert.execute.return_value = {"id": "event123", "htmlLink": "http://link"}
     
-    mock_service.events.return_value.delete.assert_called_with(calendarId='primary', eventId="ev_123")
+    start = datetime(2026, 6, 28, 9, 0)
+    end = datetime(2026, 6, 28, 18, 0)
+    
+    event_id = calendar_manager.register_event("Test Event", start, end)
+    
+    assert event_id == "event123"
+    mock_events.insert.assert_called_once()
+
+def test_register_event_failure(calendar_manager):
+    mock_events = calendar_manager.mock_service.events.return_value
+    mock_insert = mock_events.insert.return_value
+    mock_insert.execute.side_effect = Exception("API Error")
+    
+    start = datetime(2026, 6, 28, 9, 0)
+    end = datetime(2026, 6, 28, 18, 0)
+    
+    event_id = calendar_manager.register_event("Test Event", start, end)
+    
+    assert event_id is None
+
+def test_delete_event_success(calendar_manager):
+    mock_events = calendar_manager.mock_service.events.return_value
+    mock_delete = mock_events.delete.return_value
+    mock_delete.execute.return_value = {}
+    
+    calendar_manager.delete_event("event123")
+    
+    mock_events.delete.assert_called_once_with(calendarId="primary", eventId="event123")
+
+def test_delete_event_failure(calendar_manager):
+    mock_events = calendar_manager.mock_service.events.return_value
+    mock_delete = mock_events.delete.return_value
+    mock_delete.execute.side_effect = Exception("API Error")
+    
+    # Should handle exception and not crash
+    calendar_manager.delete_event("event123")
