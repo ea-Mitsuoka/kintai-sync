@@ -37,11 +37,14 @@
 
 ## フェーズ 6: デプロイ・運用準備 (最終仕上げ)
 - [x] **[基盤]** 設定用テンプレート生成コマンドの作成 (`make template`)
-- [ ] **[準備]** Artifact Registry への Docker イメージ PUSH
-
-- [ ] **[展開]** Terraform による本番環境デプロイ
-- [ ] **[設定]** Secret Manager への実トークン/パスワード登録 (Slack/Jobcan)
+- [ ] **[準備]** Artifact Registry への Docker イメージ PUSH (`docker build & push`)
+- [ ] **[展開]** Terraform による本番環境デプロイ (`terraform apply`)
+- [ ] **[設定]** Secret Manager への実トークン/パスワード登録
+  - [ ] `kintai-sync-slack-bot-token`
+  - [ ] `kintai-sync-slack-signing-secret`
+  - [ ] `JOBCAN_PASSWORD_[staff_code]` (各ユーザー分)
 - [ ] **[連携]** スプレッドシートへの Google Apps Script の設定 (`google_apps_script.js`)
+- [ ] **[権限]** Google Calendar API のドメイン全体の委任、または OAuth 認証の完了
 - [ ] **[検証]** 実際の Slack 投稿によるエンドツーエンドの疎通テスト
 
 ---
