@@ -25,6 +25,7 @@ __pycache__/
 .netrc
 
 # Other files
+user_settings*.csv
 memo*
 TODO.md
 .DS_Store

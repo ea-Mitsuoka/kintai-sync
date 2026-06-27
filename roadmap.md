@@ -36,7 +36,9 @@
 - [x] 冪等性（二重実行防止）の検証 (Firestore設計)
 
 ## フェーズ 6: デプロイ・運用準備 (最終仕上げ)
+- [x] **[基盤]** 設定用テンプレート生成コマンドの作成 (`make template`)
 - [ ] **[準備]** Artifact Registry への Docker イメージ PUSH
+
 - [ ] **[展開]** Terraform による本番環境デプロイ
 - [ ] **[設定]** Secret Manager への実トークン/パスワード登録 (Slack/Jobcan)
 - [ ] **[連携]** スプレッドシートへの Google Apps Script の設定 (`google_apps_script.js`)
