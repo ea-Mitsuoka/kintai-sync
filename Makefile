@@ -105,6 +105,9 @@ fmt: ## Format Python and Terraform files
 test: ## Run unit tests with coverage
 	uv run pytest --cov=src tests/
 
+verify-jobcan: ## Verify Jobcan automation logic locally
+	uv run python scripts/verify_jobcan.py
+
 build: ## Build docker images locally (Placeholder logic)
 	@echo "Building services..."
 

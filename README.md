@@ -95,12 +95,18 @@ uv run playwright install chromium
 ### 便利なコマンド
 
 - **`make test`**: すべてのユニットテストを実行（カバレッジ計測付き）。
+- **`make verify-jobcan`**: ジョブカンの自動申請ロジックをローカルで対話的に実行・検証。
 - **`make prepare-test`**: AI プロンプト最適化用のバケット作成とテストデータのアップロードを実行。
 - **`make lint`**: コードの静的解析とフォーマットを実行。
 - **`make logs`**: Cloud Run の最新実行ログを確認。
 - **`make register-user`**: ユーザーのパスワードを Secret Manager へ安全に登録。
 - **`make register-sheets-oauth`**: 設定スプレッドシート読み取り用の OAuth トークンを取得・登録（初回のみ）。
 - **`make destroy`**: Terraform 管理下のリソースを削除（初期構築リソースは維持）。
+
+## ドキュメント
+
+- [Slack アプリ設定ガイド](docs/SLACK_SETUP_GUIDE.md): Slack アプリの作成、権限設定、Manifest の配布。
+- [アーキテクチャ採用理由](docs/ARCHITECTURE_RATIONALE.md): システム設計の背景と技術選定の理由。
 
 ______________________________________________________________________
 

@@ -1,3 +1,4 @@
+import os
 from playwright.async_api import async_playwright
 from datetime import date
 from src.config import config
@@ -16,8 +17,9 @@ class JobcanManager:
         """
         Logs into Jobcan and submits a holiday application.
         """
+        headless = os.getenv("JOBCAN_HEADLESS", "true").lower() == "true"
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(headless=headless)
             context = await browser.new_context()
             page = await context.new_page()
 
