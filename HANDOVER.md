@@ -67,14 +67,16 @@ The system is "Production-Ready" in terms of code and infra definitions.
 
 ### 最適化の手順
 
-1.  **テストデータの準備とアップロード**:
-    ```bash
-    make prepare-test
-    ```
-    これにより、`gs://kintai-sync-test-data-[PROJECT_ID]/test_data.csv` に学習用のサンプルデータがアップロードされます。
+1. **テストデータの準備とアップロード**:
 
-2.  **最適化ツールの実行**:
-    Gemini CLI の `run_few_shot_optimization` ツールを使用して、アップロードした CSV を元にプロンプトをチューニングします。
+   ```bash
+   make prepare-test
+   ```
+
+   これにより、`gs://kintai-sync-test-data-[PROJECT_ID]/test_data.csv` に学習用のサンプルデータがアップロードされます。
+
+1. **最適化ツールの実行**:
+   Gemini CLI の `run_few_shot_optimization` ツールを使用して、アップロードした CSV を元にプロンプトをチューニングします。
 
 ### 「休みません」などの否定形への対応
 
