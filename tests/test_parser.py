@@ -31,6 +31,21 @@ def test_parse_success(mock_model_class, parser):
 
 
 @patch("src.parser.GenerativeModel")
+def test_parse_multi_date_success(mock_model_class, parser):
+    mock_model = mock_model_class.return_value
+    mock_response = MagicMock()
+    mock_response.text = '{"target_dates": ["2026-06-29", "2026-06-30"], "attendance_type": "full_day", "reason": "Trip"}'
+    mock_model.generate_content.return_value = mock_response
+
+    parser.model = mock_model
+
+    result = parser.parse("Taking off next Monday and Tuesday")
+
+    assert result.target_dates == [date(2026, 6, 29), date(2026, 6, 30)]
+    assert result.attendance_type == "full_day"
+
+
+@patch("src.parser.GenerativeModel")
 def test_parse_failure(mock_model_class, parser):
     mock_model = mock_model_class.return_value
     mock_model.generate_content.side_effect = Exception("Vertex AI Error")

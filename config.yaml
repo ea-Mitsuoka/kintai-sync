@@ -6,17 +6,36 @@ gcp:
 gemini:
   model_name: "gemini-3-flash-preview"
   prompt_template: |
-    Extract attendance information from the following Slack message.
+    You are a professional attendance parser. Your task is to extract attendance information from Slack messages and return it in a strictly structured JSON format.
+
+    Rules:
+    - target_dates: A list of dates in ISO 8601 format (YYYY-MM-DD). Use today's date ({current_date}) as a reference for relative terms like "tomorrow" or "next Monday".
+    - attendance_type: Choose exactly one from ["full_day", "morning_off", "afternoon_off", "late", "early", "flex", "none"].
+    - Use "none" if the message specifically says the user will NOT be absent or if no attendance action is required.
+    - Multiple dates: If the message specifies a range or multiple days (e.g., "Monday and Tuesday"), include all relevant dates in the target_dates list.
+    - Output MUST be JSON only.
+
+    Examples:
+    1. Message: "明日、有給休暇をいただきます。"
+       Output: {{"target_dates": ["2026-06-29"], "attendance_type": "full_day", "reason": "有給休暇"}}
+    2. Message: "明日の午前中、通院のためお休みします。午後から出社します。"
+       Output: {{"target_dates": ["2026-06-29"], "attendance_type": "morning_off", "reason": "通院"}}
+    3. Message: "本日、急用により15時で早退させていただきます。"
+       Output: {{"target_dates": ["2026-06-28"], "attendance_type": "early", "reason": "急用"}}
+    4. Message: "来週の月曜日は午後休にします。"
+       Output: {{"target_dates": ["2026-07-06"], "attendance_type": "afternoon_off", "reason": null}}
+    5. Message: "体調不良のため、本日はお休みさせてください。"
+       Output: {{"target_dates": ["2026-06-28"], "attendance_type": "full_day", "reason": "体調不良"}}
+    6. Message: "家族が風邪を引いていますが、私は元気なので休みません。"
+       Output: {{"target_dates": [], "attendance_type": "none", "reason": null}}
+    7. Message: "電車遅延のため、10時半ごろに出社します。"
+       Output: {{"target_dates": ["2026-06-28"], "attendance_type": "late", "reason": "電車遅延"}}
+    8. Message: "明日はワーケーションのためフレックスで20時まで働きます。"
+       Output: {{"target_dates": ["2026-06-29"], "attendance_type": "flex", "reason": "ワーケーション"}}
+
     Today's date is {current_date}.
-    
     Message: "{message}"
-    
-    Output must be a JSON object with the following keys:
-    - target_dates: A list of dates in ISO 8601 format (YYYY-MM-DD), or empty list if not applicable
-    - attendance_type: One of "full_day", "morning_off", "afternoon_off", "late", "early", "flex", "none"
-    - reason: Brief reason for the attendance change
-    
-    If the message does not indicate any change to attendance (e.g., "I will not be absent"), set attendance_type to "none" and target_dates to [].
+    Output:
 
 jobcan:
   base_url: "https://ssl.jobcan.jp/employee"
@@ -49,17 +68,9 @@ calendar:
   calendar_id: "primary"
 
 sync:
-  default_range: "Sheet1!A2:I"
-  # Lazy read-through cache: the Worker refreshes user settings from the
-  # spreadsheet only when the cached snapshot is older than this many seconds.
-  # No GAS, no manual command, no Cloud Scheduler required.
-  cache_ttl_seconds: 3600
-  # The spreadsheet lives in a Workspace whose policy blocks sharing files with
-  # the service account (gserviceaccount.com counts as an external domain). So
-  # the Worker reads the sheet as an authorized *user* via an OAuth refresh
-  # token stored in this Secret Manager secret (JSON: client_id, client_secret,
-  # refresh_token). If the secret is absent, it falls back to ADC (local dev).
   oauth_secret_id: "kintai-sync-sheets-oauth"
+  default_range: "A2:K100"
+  cache_ttl_seconds: 3600
   defaults:
     morning_off_start: "09:00"
     morning_off_end: "13:00"
