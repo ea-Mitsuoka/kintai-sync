@@ -25,15 +25,31 @@ class JobcanManager:
 
             try:
                 # 1. Login
-                await page.goto(f"{self.base_url}/login")
-                await page.fill("#client_id", self.company_id)
-                await page.fill("#staff_id", self.staff_code)
-                await page.fill("#password", self.password)
-                await page.click(".btn-login")
+                # Jobcan ID login (common for users using Google Sign-in)
+                await page.goto("https://id.jobcan.jp/users/sign_in?app_key=atd")
+                
+                # Check if we are on Jobcan ID login page or redirect to employee login
+                if await page.query_selector("#user_email"):
+                    # Jobcan ID login
+                    await page.fill("#user_email", self.staff_code) # Use staff_code as email
+                    await page.fill("#user_password", self.password)
+                    await page.click('input[type="submit"]')
+                else:
+                    # Fallback to direct login if redirected to ssl.jobcan.jp
+                    await page.goto(f"{self.base_url}/login")
+                    await page.fill("#client_id", self.company_id)
+                    # Try both staff_id and email selectors as some pages vary
+                    if await page.query_selector("#staff_id"):
+                        await page.fill("#staff_id", self.staff_code)
+                    else:
+                        await page.fill("#email", self.staff_code)
+                    await page.fill("#password", self.password)
+                    await page.click(".btn-login")
 
-                # Check if login was successful
-                if await page.query_selector(".alert-danger"):
-                    print("Login failed: Invalid credentials")
+                # Wait for navigation to complete and check for errors
+                await page.wait_for_load_state("networkidle")
+                if await page.query_selector(".alert-danger") or await page.query_selector(".errors"):
+                    print("Login failed: Invalid credentials or error message displayed")
                     return False
 
                 # 2. Navigate to holiday application page
