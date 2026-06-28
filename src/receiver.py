@@ -9,31 +9,36 @@ from src.config import config
 
 app = Flask(__name__)
 
+
 def verify_slack_signature(signing_secret: str):
     """Verifies the signature of a Slack request."""
-    timestamp = request.headers.get('X-Slack-Request-Timestamp')
-    signature = request.headers.get('X-Slack-Signature')
-    
+    timestamp = request.headers.get("X-Slack-Request-Timestamp")
+    signature = request.headers.get("X-Slack-Signature")
+
     if not timestamp or not signature:
         return False
-    
+
     if abs(time.time() - int(timestamp)) > 60 * 5:
         return False
-    
+
     sig_basestring = f"v0:{timestamp}:{request.get_data().decode('utf-8')}"
-    my_signature = 'v0=' + hmac.new(
-        signing_secret.encode('utf-8'),
-        sig_basestring.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
-    
+    my_signature = (
+        "v0="
+        + hmac.new(
+            signing_secret.encode("utf-8"),
+            sig_basestring.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+    )
+
     return hmac.compare_digest(my_signature, signature)
+
 
 @app.route("/slack/events", methods=["POST"])
 def slack_events():
     """Endpoint for Slack Events API."""
     data = request.get_json()
-    
+
     # 1. URL Verification (for first time setup)
     if data.get("type") == "url_verification":
         return jsonify({"challenge": data.get("challenge")})
@@ -55,13 +60,13 @@ def slack_events():
 
     client = tasks_v2.CloudTasksClient()
     parent = client.queue_path(project, location, queue)
-    
+
     task_payload = {
         "client_msg_id": event.get("client_msg_id"),
         "user_id": event.get("user"),
         "text": event.get("text"),
         "channel_id": event.get("channel"),
-        "ts": event.get("ts")
+        "ts": event.get("ts"),
     }
 
     task = {
@@ -69,18 +74,21 @@ def slack_events():
             "http_method": tasks_v2.HttpMethod.POST,
             "url": url,
             "headers": {"Content-type": "application/json"},
-            "body": json.dumps(task_payload).encode()
+            "body": json.dumps(task_payload).encode(),
         }
     }
 
     # Add OIDC token for authentication between Cloud Run services
     service_account_email = os.getenv("RECEIVER_SA_EMAIL")
     if service_account_email:
-        task["http_request"]["oidc_token"] = {"service_account_email": service_account_email}
+        task["http_request"]["oidc_token"] = {
+            "service_account_email": service_account_email
+        }
 
     client.create_task(request={"parent": parent, "task": task})
 
     return "OK", 200
+
 
 # Production entry point for Gunicorn
 if __name__ == "__main__":

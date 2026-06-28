@@ -1,9 +1,7 @@
-import os
-import asyncio
 from playwright.async_api import async_playwright
 from datetime import date
-from typing import Optional
 from src.config import config
+
 
 class JobcanManager:
     def __init__(self, company_id: str, staff_code: str, password: str):
@@ -12,7 +10,9 @@ class JobcanManager:
         self.password = password
         self.base_url = config.get("jobcan.base_url")
 
-    async def apply_holiday(self, target_date: date, attendance_type: str, reason: str) -> bool:
+    async def apply_holiday(
+        self, target_date: date, attendance_type: str, reason: str
+    ) -> bool:
         """
         Logs into Jobcan and submits a holiday application.
         """
@@ -46,7 +46,7 @@ class JobcanManager:
                 # 4. Submit
                 # await page.click("#submit-button")
                 print(f"Applied for {attendance_type} on {target_date}")
-                
+
                 await browser.close()
                 return True
 

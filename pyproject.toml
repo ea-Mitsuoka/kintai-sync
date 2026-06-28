@@ -24,3 +24,8 @@ dependencies = [
     "pyyaml>=6.0.3",
     "slack-sdk>=3.42.0",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.20",
+]

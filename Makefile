@@ -82,11 +82,25 @@ generate: ## Generate Terraform variables or config from source of truth
 	@echo "slack_user_id,jobcan_company_id,jobcan_staff_code,morning_off_start,morning_off_end,afternoon_off_start,afternoon_off_end,working_hours_start,working_hours_end,timezone" > user_settings_template.csv
 	@echo "U01234567,1234,staff-001,09:00,13:00,14:00,18:00,09:00,18:00,Asia/Tokyo" >> user_settings_template.csv
 
-lint: ## Lint and format Terraform and Python files
-	@echo "Linting Python code..."
-	uv run ruff check . || echo "Ruff check failed or not installed"
-	@echo "Formatting Terraform files..."
-	cd terraform && terraform fmt
+lint: ## Lint Python and Terraform files
+	@echo "--- Linting Python code ---"
+	uv run ruff check .
+	@echo "--- Checking Terraform format ---"
+	@if command -v terraform >/dev/null 2>&1; then \
+		cd terraform && terraform fmt -check; \
+	else \
+		echo "terraform not found, skipping check."; \
+	fi
+
+fmt: ## Format Python and Terraform files
+	@echo "--- Formatting Python code ---"
+	uv run ruff format .
+	@echo "--- Formatting Terraform files ---"
+	@if command -v terraform >/dev/null 2>&1; then \
+		cd terraform && terraform fmt; \
+	else \
+		echo "terraform not found, skipping format."; \
+	fi
 
 test: ## Run unit tests with coverage
 	uv run pytest --cov=src tests/

@@ -9,7 +9,7 @@ from src.secrets import get_secret
 from src.config import config
 
 # Scopes for the Google Sheets API (read-only).
-SHEETS_SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+SHEETS_SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 OAUTH_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
@@ -71,7 +71,7 @@ class SettingsSyncer:
         if self._service is None:
             credentials = self._build_credentials()
             self._service = build(
-                'sheets', 'v4', credentials=credentials, cache_discovery=False
+                "sheets", "v4", credentials=credentials, cache_discovery=False
             )
         return self._service
 
@@ -102,11 +102,15 @@ class SettingsSyncer:
             range_name = config.get("sync.default_range")
 
         sheet = self.service.spreadsheets()
-        result = sheet.values().get(spreadsheetId=self.spreadsheet_id, range=range_name).execute()
-        values = result.get('values', [])
+        result = (
+            sheet.values()
+            .get(spreadsheetId=self.spreadsheet_id, range=range_name)
+            .execute()
+        )
+        values = result.get("values", [])
 
         if not values:
-            print('No data found in spreadsheet.')
+            print("No data found in spreadsheet.")
             # Still record the sync attempt so we don't re-read every message.
             self.history_manager.set_users_synced_at(time.time())
             return
@@ -123,16 +127,32 @@ class SettingsSyncer:
                     jobcan_company_id=row[1],
                     jobcan_staff_code=row[2],
                     dept_channel_id=row[3] if len(row) > 3 else None,
-                    morning_off_start=row[4] if len(row) > 4 else config.get("sync.defaults.morning_off_start"),
-                    morning_off_end=row[5] if len(row) > 5 else config.get("sync.defaults.morning_off_end"),
-                    afternoon_off_start=row[6] if len(row) > 6 else config.get("sync.defaults.afternoon_off_start"),
-                    afternoon_off_end=row[7] if len(row) > 7 else config.get("sync.defaults.afternoon_off_end"),
-                    working_hours_start=row[8] if len(row) > 8 else config.get("sync.defaults.working_hours_start"),
-                    working_hours_end=row[9] if len(row) > 9 else config.get("sync.defaults.working_hours_end"),
-                    timezone=row[10] if len(row) > 10 else config.get("sync.defaults.timezone")
+                    morning_off_start=row[4]
+                    if len(row) > 4
+                    else config.get("sync.defaults.morning_off_start"),
+                    morning_off_end=row[5]
+                    if len(row) > 5
+                    else config.get("sync.defaults.morning_off_end"),
+                    afternoon_off_start=row[6]
+                    if len(row) > 6
+                    else config.get("sync.defaults.afternoon_off_start"),
+                    afternoon_off_end=row[7]
+                    if len(row) > 7
+                    else config.get("sync.defaults.afternoon_off_end"),
+                    working_hours_start=row[8]
+                    if len(row) > 8
+                    else config.get("sync.defaults.working_hours_start"),
+                    working_hours_end=row[9]
+                    if len(row) > 9
+                    else config.get("sync.defaults.working_hours_end"),
+                    timezone=row[10]
+                    if len(row) > 10
+                    else config.get("sync.defaults.timezone"),
                 )
 
-                self.history_manager.set_user_settings(settings.slack_user_id, settings.dict())
+                self.history_manager.set_user_settings(
+                    settings.slack_user_id, settings.dict()
+                )
                 synced_count += 1
             except Exception as e:
                 print(f"Error syncing row {row}: {e}")

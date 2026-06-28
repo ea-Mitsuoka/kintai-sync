@@ -21,6 +21,7 @@ The output JSON contains: client_id, client_secret, refresh_token.
 All human-readable progress is printed to stderr; nothing secret is printed to
 stdout.
 """
+
 import json
 import sys
 

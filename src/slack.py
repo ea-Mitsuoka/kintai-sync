@@ -3,6 +3,7 @@ from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from typing import Optional
 
+
 class SlackManager:
     def __init__(self, token: str = None):
         self.token = token or os.getenv("SLACK_BOT_TOKEN")
@@ -14,10 +15,7 @@ class SlackManager:
         Returns the timestamp (ts) of the message.
         """
         try:
-            response = self.client.chat_postMessage(
-                channel=channel_id,
-                text=text
-            )
+            response = self.client.chat_postMessage(channel=channel_id, text=text)
             return response["ts"]
         except SlackApiError as e:
             print(f"Error posting message to Slack: {e.response['error']}")
@@ -29,14 +27,14 @@ class SlackManager:
         """
         try:
             self.client.chat_postMessage(
-                channel=channel_id,
-                thread_ts=thread_ts,
-                text=text
+                channel=channel_id, thread_ts=thread_ts, text=text
             )
         except SlackApiError as e:
             print(f"Error replying to thread: {e.response['error']}")
 
-    def set_user_status(self, user_token: str, status_text: str, status_emoji: str, expiration: int = 0):
+    def set_user_status(
+        self, user_token: str, status_text: str, status_emoji: str, expiration: int = 0
+    ):
         """
         Updates the user's Slack status.
         Requires a User Token (xoxp-...) with 'users.profile:write' scope.
@@ -47,7 +45,7 @@ class SlackManager:
                 profile={
                     "status_text": status_text,
                     "status_emoji": status_emoji,
-                    "status_expiration": expiration
+                    "status_expiration": expiration,
                 }
             )
         except SlackApiError as e:

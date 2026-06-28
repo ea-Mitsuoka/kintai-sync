@@ -1,6 +1,5 @@
 import json
 import time
-import pytest
 from unittest.mock import MagicMock, patch
 from src.sync import SettingsSyncer
 
@@ -9,15 +8,30 @@ from src.sync import SettingsSyncer
 @patch("src.history.HistoryManager.set_users_synced_at")
 @patch("src.sync.build")
 @patch("src.history.HistoryManager.set_user_settings")
-def test_sync_success(mock_set_settings, mock_sheets_build, mock_set_synced_at, mock_get_secret):
+def test_sync_success(
+    mock_set_settings, mock_sheets_build, mock_set_synced_at, mock_get_secret
+):
     # Mock Sheets API response
     mock_service = MagicMock()
     mock_sheets_build.return_value = mock_service
     mock_values = [
-        ["U1", "C1", "S1", "09:00", "13:00", "14:00", "18:00", "09:00", "18:00", "Asia/Tokyo"],
-        ["U2", "C1", "S2"]  # Minimal row
+        [
+            "U1",
+            "C1",
+            "S1",
+            "09:00",
+            "13:00",
+            "14:00",
+            "18:00",
+            "09:00",
+            "18:00",
+            "Asia/Tokyo",
+        ],
+        ["U2", "C1", "S2"],  # Minimal row
     ]
-    mock_service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value = {"values": mock_values}
+    mock_service.spreadsheets.return_value.values.return_value.get.return_value.execute.return_value = {
+        "values": mock_values
+    }
 
     syncer = SettingsSyncer(spreadsheet_id="test-id", project_id="test-project")
     syncer.sync()
@@ -63,7 +77,13 @@ def test_sync_if_stale_skips_when_fresh(mock_sheets_build, mock_get_synced_at):
 @patch("src.history.HistoryManager.set_user_settings")
 @patch("src.history.HistoryManager.get_users_synced_at")
 @patch("src.sync.build")
-def test_sync_if_stale_syncs_when_stale(mock_sheets_build, mock_get_synced_at, mock_set_settings, mock_set_synced_at, mock_get_secret):
+def test_sync_if_stale_syncs_when_stale(
+    mock_sheets_build,
+    mock_get_synced_at,
+    mock_set_settings,
+    mock_set_synced_at,
+    mock_get_secret,
+):
     # Last sync was long ago -> stale -> perform a Sheets read.
     mock_get_synced_at.return_value = time.time() - 99999
 
@@ -85,7 +105,13 @@ def test_sync_if_stale_syncs_when_stale(mock_sheets_build, mock_get_synced_at, m
 @patch("src.history.HistoryManager.set_user_settings")
 @patch("src.history.HistoryManager.get_users_synced_at")
 @patch("src.sync.build")
-def test_sync_if_stale_syncs_when_never_synced(mock_sheets_build, mock_get_synced_at, mock_set_settings, mock_set_synced_at, mock_get_secret):
+def test_sync_if_stale_syncs_when_never_synced(
+    mock_sheets_build,
+    mock_get_synced_at,
+    mock_set_settings,
+    mock_set_synced_at,
+    mock_get_secret,
+):
     # No prior sync timestamp -> must perform a sync.
     mock_get_synced_at.return_value = None
 
@@ -106,11 +132,13 @@ def test_sync_if_stale_syncs_when_never_synced(mock_sheets_build, mock_get_synce
 @patch("src.sync.get_secret")
 def test_build_credentials_from_oauth_secret(mock_get_secret, mock_credentials):
     # A well-formed OAuth secret yields user credentials passed to the API.
-    mock_get_secret.return_value = json.dumps({
-        "client_id": "cid",
-        "client_secret": "csecret",
-        "refresh_token": "rtoken",
-    })
+    mock_get_secret.return_value = json.dumps(
+        {
+            "client_id": "cid",
+            "client_secret": "csecret",
+            "refresh_token": "rtoken",
+        }
+    )
 
     syncer = SettingsSyncer(spreadsheet_id="test-id", project_id="test-project")
     creds = syncer._build_credentials()
