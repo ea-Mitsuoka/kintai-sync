@@ -105,6 +105,7 @@ uv run playwright install chromium
 
 ## ドキュメント
 
+- [ローカルデバッグガイド](docs/LOCAL_DEBUG_GUIDE.md): ローカル環境での動作確認・デバッグ手順。
 - [Slack アプリ設定ガイド](docs/SLACK_SETUP_GUIDE.md): Slack アプリの作成、権限設定、Manifest の配布。
 - [アーキテクチャ採用理由](docs/ARCHITECTURE_RATIONALE.md): システム設計の背景と技術選定の理由。
 
