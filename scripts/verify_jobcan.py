@@ -22,11 +22,15 @@ async def main():
         return
 
     # 2. Set test parameters
-    target_date_str = input("Target Date (YYYY-MM-DD) [Default: today]: ")
-    if target_date_str:
-        target_date = date.fromisoformat(target_date_str)
-    else:
+    target_date_str = input("Target Date (YYYY-MM-DD) [Default: today]: ").strip().lower()
+    if target_date_str == "" or target_date_str == "today":
         target_date = date.today()
+    else:
+        try:
+            target_date = date.fromisoformat(target_date_str)
+        except ValueError:
+            print(f"Error: Invalid date format '{target_date_str}'. Please use YYYY-MM-DD.")
+            return
 
     print("\nSelect Attendance Type:")
     print("1: full_day (全休)")
