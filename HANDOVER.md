@@ -61,7 +61,26 @@ The system is "Production-Ready" in terms of code and infra definitions.
   - Final E2E verification with real tokens.
   - Registering the Sheets OAuth refresh token via `make register-sheets-oauth`. The settings spreadsheet cannot be shared with the Worker service account (the e-agency Workspace sharing policy treats `gserviceaccount.com` as an external domain), so the Worker reads the sheet as an authorized *user* via an OAuth refresh token stored in Secret Manager (`kintai-sync-sheets-oauth`). Settings sync no longer uses GAS, `make sync`, or Cloud Scheduler — the Worker refreshes from the sheet on demand when its cached snapshot is older than `sync.cache_ttl_seconds`. Set the OAuth consent screen to "Internal" so the refresh token does not expire.
 
-## 7. Reference Documents
+## 7. AI プロンプトの最適化 (Prompt Optimization)
+
+本システムは Vertex AI (Gemini) を使用してメッセージを解析しています。解析精度を向上させるために、Few-Shot 最適化を実行できます。
+
+### 最適化の手順
+
+1.  **テストデータの準備とアップロード**:
+    ```bash
+    make prepare-test
+    ```
+    これにより、`gs://kintai-sync-test-data-[PROJECT_ID]/test_data.csv` に学習用のサンプルデータがアップロードされます。
+
+2.  **最適化ツールの実行**:
+    Gemini CLI の `run_few_shot_optimization` ツールを使用して、アップロードした CSV を元にプロンプトをチューニングします。
+
+### 「休みません」などの否定形への対応
+
+`attendance_type: "none"` を導入しました。これにより、「風邪を引いたが休みません」といったメッセージを AI が正しく解釈し、システムが不要な申請を行わないようになっています。Worker 側でも `none` の場合は早期リターンするように実装されています。
+
+## 8. Reference Documents
 
 - `docs/requirements.md`: Detailed functional/non-functional specs.
 - `docs/roadmap.md`: Historical and future task tracking.

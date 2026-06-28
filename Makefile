@@ -2,12 +2,13 @@
 PROJECT_ID ?= $(shell gcloud config get-value project 2>/dev/null)
 REGION ?= asia-northeast1
 TF_STATE_BUCKET ?= kintai-sync-tfstate-$(PROJECT_ID)
+TEST_DATA_BUCKET ?= kintai-sync-test-data-$(PROJECT_ID)
 TF_SA_NAME ?= kintai-sync-terraform-sa
 TF_SA_EMAIL ?= $(TF_SA_NAME)@$(PROJECT_ID).iam.gserviceaccount.com
 APP_PREFIX ?= kintai-sync
 REPO_NAME ?= $(APP_PREFIX)-repo
 
-.PHONY: help setup check generate lint opa test plan build push deploy destroy destroy-all prune template logs secrets register-user register-secrets register-sheets-oauth
+.PHONY: help setup check generate lint opa test prepare-test plan build push deploy destroy destroy-all prune template logs secrets register-user register-secrets register-sheets-oauth
 
 help: ## Show this help message
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -48,6 +49,28 @@ setup: ## Initial setup (create tfstate bucket, SA, and IAM roles)
 	@echo "--- Step 5: Initializing Terraform ---"
 	cd terraform && terraform init -backend-config="bucket=$(TF_STATE_BUCKET)"
 
+prepare-test: ## Create a GCS bucket and upload test data for prompt optimization
+	@echo "--- Checking/Creating Test Data Bucket: gs://$(TEST_DATA_BUCKET) ---"
+	@if ! gsutil ls -b gs://$(TEST_DATA_BUCKET) >/dev/null 2>&1; then \
+		echo "Creating bucket gs://$(TEST_DATA_BUCKET)..."; \
+		gsutil mb -l $(REGION) gs://$(TEST_DATA_BUCKET); \
+	else \
+		echo "Bucket already exists."; \
+	fi
+	@echo "--- Generating test_data.csv ---"
+	@echo "prompt,target_response" > test_data.csv
+	@echo "「明日、有給休暇をいただきます。」,\"{\\\"target_date\\\": \\\"2026-06-29\\\", \\\"attendance_type\\\": \\\"full_day\\\", \\\"reason\\\": \\\"有給休暇\\\"}\"" >> test_data.csv
+	@echo "「明日の午前中、通院のためお休みします。午後から出社します。」,\"{\\\"target_date\\\": \\\"2026-06-29\\\", \\\"attendance_type\\\": \\\"morning_off\\\", \\\"reason\\\": \\\"通院\\\"}\"" >> test_data.csv
+	@echo "「本日、急用により15時で早退させていただきます。」,\"{\\\"target_date\\\": \\\"2026-06-28\\\", \\\"attendance_type\\\": \\\"early\\\", \\\"reason\\\": \\\"急用\\\"}\"" >> test_data.csv
+	@echo "「来週の月曜日は午後休にします。」,\"{\\\"target_date\\\": \\\"2026-07-06\\\", \\\"attendance_type\\\": \\\"afternoon_off\\\", \\\"reason\\\": null}\"" >> test_data.csv
+	@echo "「体調不良のため、本日はお休みさせてください。」,\"{\\\"target_date\\\": \\\"2026-06-28\\\", \\\"attendance_type\\\": \\\"full_day\\\", \\\"reason\\\": \\\"体調不良\\\"}\"" >> test_data.csv
+	@echo "「家族が風邪を引いていますが、私は元気なので休みません。」,\"{\\\"target_date\\\": null, \\\"attendance_type\\\": \\\"none\\\", \\\"reason\\\": null}\"" >> test_data.csv
+	@echo "「電車遅延のため、10時半ごろに出社します。」,\"{\\\"target_date\\\": \\\"2026-06-28\\\", \\\"attendance_type\\\": \\\"late\\\", \\\"reason\\\": \\\"電車遅延\\\"}\"" >> test_data.csv
+	@echo "「明日はワーケーションのためフレックスで20時まで働きます。」,\"{\\\"target_date\\\": \\\"2026-06-29\\\", \\\"attendance_type\\\": \\\"flex\\\", \\\"reason\\\": \\\"ワーケーション\\\"}\"" >> test_data.csv
+	@echo "--- Uploading test_data.csv to gs://$(TEST_DATA_BUCKET) ---"
+	gsutil cp test_data.csv gs://$(TEST_DATA_BUCKET)/test_data.csv
+	@echo "Upload complete: gs://$(TEST_DATA_BUCKET)/test_data.csv"
+
 check: ## Pre-flight check for GCP permissions, billing, and APIs
 	@echo "Checking GCP configuration..."
 	gcloud auth list --filter=status:ACTIVE --format="value(account)"
@@ -83,6 +106,7 @@ destroy: ## Destroy resources managed by Terraform
 destroy-all: ## Completely clean up everything including the storage bucket
 	cd terraform && terraform destroy -auto-approve
 	gsutil rm -r gs://$(TF_STATE_BUCKET)
+	gsutil rm -r gs://$(TEST_DATA_BUCKET) || true
 
 prune: ## Clean temporary python and testing artifacts
 	find . -type d -name "__pycache__" -exec rm -r {} +

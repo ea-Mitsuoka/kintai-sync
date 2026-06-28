@@ -94,7 +94,7 @@ class SettingsSyncer:
         """
         Syncs data from Google Sheets to Firestore.
         Expected columns:
-        slack_user_id, jobcan_company_id, jobcan_staff_code,
+        slack_user_id, jobcan_company_id, jobcan_staff_code, dept_channel_id,
         morning_off_start, morning_off_end, afternoon_off_start, afternoon_off_end,
         working_hours_start, working_hours_end, timezone
         """
@@ -122,13 +122,14 @@ class SettingsSyncer:
                     slack_user_id=row[0],
                     jobcan_company_id=row[1],
                     jobcan_staff_code=row[2],
-                    morning_off_start=row[3] if len(row) > 3 else config.get("sync.defaults.morning_off_start"),
-                    morning_off_end=row[4] if len(row) > 4 else config.get("sync.defaults.morning_off_end"),
-                    afternoon_off_start=row[5] if len(row) > 5 else config.get("sync.defaults.afternoon_off_start"),
-                    afternoon_off_end=row[6] if len(row) > 6 else config.get("sync.defaults.afternoon_off_end"),
-                    working_hours_start=row[7] if len(row) > 7 else config.get("sync.defaults.working_hours_start"),
-                    working_hours_end=row[8] if len(row) > 8 else config.get("sync.defaults.working_hours_end"),
-                    timezone=row[9] if len(row) > 9 else config.get("sync.defaults.timezone")
+                    dept_channel_id=row[3] if len(row) > 3 else None,
+                    morning_off_start=row[4] if len(row) > 4 else config.get("sync.defaults.morning_off_start"),
+                    morning_off_end=row[5] if len(row) > 5 else config.get("sync.defaults.morning_off_end"),
+                    afternoon_off_start=row[6] if len(row) > 6 else config.get("sync.defaults.afternoon_off_start"),
+                    afternoon_off_end=row[7] if len(row) > 7 else config.get("sync.defaults.afternoon_off_end"),
+                    working_hours_start=row[8] if len(row) > 8 else config.get("sync.defaults.working_hours_start"),
+                    working_hours_end=row[9] if len(row) > 9 else config.get("sync.defaults.working_hours_end"),
+                    timezone=row[10] if len(row) > 10 else config.get("sync.defaults.timezone")
                 )
 
                 self.history_manager.set_user_settings(settings.slack_user_id, settings.dict())

@@ -12,9 +12,11 @@ gemini:
     Message: "{message}"
     
     Output must be a JSON object with the following keys:
-    - target_date: ISO 8601 format (YYYY-MM-DD)
-    - attendance_type: One of "full_day", "morning_off", "afternoon_off", "late", "early", "flex"
+    - target_date: ISO 8601 format (YYYY-MM-DD), or null if not applicable
+    - attendance_type: One of "full_day", "morning_off", "afternoon_off", "late", "early", "flex", "none"
     - reason: Brief reason for the attendance change
+    
+    If the message does not indicate any change to attendance (e.g., "I will not be absent"), set attendance_type to "none" and target_date to null.
 
 jobcan:
   base_url: "https://ssl.jobcan.jp/employee"
@@ -22,6 +24,25 @@ jobcan:
 slack:
   report_format: "【勤怠連絡】{user_id}さん: {target_date} {attendance_type}"
   feedback_header: "✅ 処理が完了しました。"
+  status_mapping:
+    full_day:
+      emoji: ":palm_tree:"
+      text: "本日休暇"
+    morning_off:
+      emoji: ":sunny:"
+      text: "午前休 (13時頃〜)"
+    afternoon_off:
+      emoji: ":city_at_dusk:"
+      text: "午後休 (~14時)"
+    late:
+      emoji: ":bus:"
+      text: "少し遅れます"
+    early:
+      emoji: ":runner:"
+      text: "早退します"
+    flex:
+      emoji: ":keyboard:"
+      text: "フレキシブル勤務"
 
 calendar:
   timezone: "Asia/Tokyo"

@@ -33,3 +33,11 @@ def get_jobcan_password(staff_code: str) -> str:
     """
     secret_id = f"JOBCAN_PASSWORD_{staff_code.replace('-', '_')}"
     return get_secret(secret_id)
+
+def get_slack_user_token(user_id: str) -> str:
+    """
+    Retrieves the Slack User Token (xoxp-...) for a specific user.
+    Naming convention: SLACK_USER_TOKEN_[user_id]
+    """
+    secret_id = f"SLACK_USER_TOKEN_{user_id.replace('-', '_')}"
+    return get_secret(secret_id)
