@@ -21,7 +21,7 @@ def test_worker_endpoint(mock_slack, mock_jobcan, mock_history, mock_parser, moc
     # Setup mocks
     mock_parser_inst = mock_parser.return_value
     mock_parser_inst.parse.return_value = AttendanceInfo(
-        target_date=date(2026, 6, 28), 
+        target_dates=[date(2026, 6, 28)], 
         attendance_type="full_day", 
         reason="Rest",
         original_message="Taking off"

@@ -14,7 +14,7 @@ def parser():
 def test_parse_success(mock_model_class, parser):
     mock_model = mock_model_class.return_value
     mock_response = MagicMock()
-    mock_response.text = '{"target_date": "2026-06-28", "attendance_type": "full_day", "reason": "Holiday"}'
+    mock_response.text = '{"target_dates": ["2026-06-28"], "attendance_type": "full_day", "reason": "Holiday"}'
     mock_model.generate_content.return_value = mock_response
     
     # Ensure the parser uses the mocked model
@@ -24,7 +24,7 @@ def test_parse_success(mock_model_class, parser):
     
     assert isinstance(result, AttendanceInfo)
     # The parser converts the string date to a date object
-    assert result.target_date == date(2026, 6, 28)
+    assert result.target_dates == [date(2026, 6, 28)]
     assert result.attendance_type == "full_day"
 
 @patch("src.parser.GenerativeModel")

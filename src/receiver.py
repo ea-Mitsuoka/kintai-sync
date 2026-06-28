@@ -39,9 +39,9 @@ def slack_events():
         return jsonify({"challenge": data.get("challenge")})
 
     # 2. Verify Signature
-    # signing_secret = os.getenv("SLACK_SIGNING_SECRET")
-    # if not verify_slack_signature(signing_secret):
-    #     return "Invalid signature", 403
+    signing_secret = os.getenv("SLACK_SIGNING_SECRET")
+    if signing_secret and not verify_slack_signature(signing_secret):
+        return "Invalid signature", 403
 
     event = data.get("event")
     if not event or event.get("type") != "message" or "bot_id" in event:
@@ -74,8 +74,9 @@ def slack_events():
     }
 
     # Add OIDC token for authentication between Cloud Run services
-    # service_account_email = os.getenv("RECEIVER_SA_EMAIL")
-    # task["http_request"]["oidc_token"] = {"service_account_email": service_account_email}
+    service_account_email = os.getenv("RECEIVER_SA_EMAIL")
+    if service_account_email:
+        task["http_request"]["oidc_token"] = {"service_account_email": service_account_email}
 
     client.create_task(request={"parent": parent, "task": task})
 

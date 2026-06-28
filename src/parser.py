@@ -37,7 +37,7 @@ class MessageParser:
             data = json.loads(response.text)
             
             return AttendanceInfo(
-                target_date=data["target_date"],
+                target_dates=data.get("target_dates", []),
                 attendance_type=data["attendance_type"],
                 reason=data.get("reason"),
                 original_message=message

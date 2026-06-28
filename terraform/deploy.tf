@@ -91,3 +91,11 @@ resource "google_cloud_run_v2_service_iam_member" "receiver_public" {
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
+
+# 8. Internal Invocation (Receiver calls Worker)
+resource "google_cloud_run_v2_service_iam_member" "receiver_invokes_worker" {
+  location = google_cloud_run_v2_service.worker.location
+  name     = google_cloud_run_v2_service.worker.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.receiver_sa.email}"
+}

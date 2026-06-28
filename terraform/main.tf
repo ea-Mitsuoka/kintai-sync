@@ -46,10 +46,11 @@ resource "google_cloud_tasks_queue" "queue" {
   }
 
   retry_config {
-    max_attempts  = 5
-    max_backoff   = "3600s"
-    min_backoff   = "10s"
-    max_doublings = 5
+    max_attempts       = 10
+    max_backoff        = "86400s" # 24 hours
+    min_backoff        = "30s"
+    max_doublings      = 5
+    max_retry_duration = "0s" # Unlimited duration (within max_attempts)
   }
 }
 

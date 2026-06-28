@@ -11,6 +11,7 @@ from src.sync import SettingsSyncer
 from src.models import TaskExecutionState, SubTaskStatus, AttendanceInfo
 from src.config import config
 from datetime import datetime, time, date
+from typing import Tuple
 
 app = Flask(__name__)
 
@@ -36,7 +37,7 @@ async def worker():
     # Load previous subtask results if any
     prev_subtasks = existing_data.get("subtasks", {}) if existing_data else {}
 
-    # 2. Parse Message (always re-parse for simplicity, or cache in Firestore)
+    # 2. Parse Message
     parser = MessageParser()
     try:
         attendance_info = parser.parse(message_text)
@@ -44,11 +45,13 @@ async def worker():
         return jsonify({"status": "parse_error", "error": str(e)}), 400
 
     # Early exit if no attendance action is needed
-    if attendance_info.attendance_type == "none":
+    if attendance_info.attendance_type == "none" or not attendance_info.target_dates:
         slack = SlackManager()
         slack.reply_to_thread(channel_id, thread_ts, "✅ メッセージを確認しました（勤怠申請は必要ないと判断しました）。")
         history_manager.update_task_status(client_msg_id, "success", {"info": "no_action_needed"})
         return jsonify({"status": "success"}), 200
+
+    # 3. Get User Settings
     spreadsheet_id = os.getenv("SETTINGS_SPREADSHEET_ID")
     if spreadsheet_id:
         try:
@@ -69,59 +72,63 @@ async def worker():
 
     # 4. Execute Subtasks (Jobcan, Slack Post, Calendar, Slack Status)
     
-    # --- Jobcan Subtask ---
-    if not execution_state.subtasks.get("jobcan") or not execution_state.subtasks["jobcan"].success:
-        try:
-            jobcan_password = get_jobcan_password(settings_dict["jobcan_staff_code"])
-            jobcan = JobcanManager(
-                settings_dict["jobcan_company_id"], 
-                settings_dict["jobcan_staff_code"], 
-                jobcan_password
-            )
-            success = await jobcan.apply_holiday(
-                attendance_info.target_date, 
-                attendance_info.attendance_type, 
-                attendance_info.reason
-            )
-            execution_state.subtasks["jobcan"] = SubTaskStatus(success=success, executed_at=datetime.now().isoformat())
-        except Exception as e:
-            execution_state.subtasks["jobcan"] = SubTaskStatus(success=False, error_message=str(e))
+    # --- Loop over target dates for Jobcan and Calendar ---
+    for target_date in attendance_info.target_dates:
+        date_str = target_date.isoformat()
+        
+        # Jobcan
+        jobcan_key = f"jobcan:{date_str}"
+        if not execution_state.subtasks.get(jobcan_key) or not execution_state.subtasks[jobcan_key].success:
+            try:
+                jobcan_password = get_jobcan_password(settings_dict["jobcan_staff_code"])
+                jobcan = JobcanManager(
+                    settings_dict["jobcan_company_id"], 
+                    settings_dict["jobcan_staff_code"], 
+                    jobcan_password
+                )
+                success = await jobcan.apply_holiday(
+                    target_date, 
+                    attendance_info.attendance_type, 
+                    attendance_info.reason
+                )
+                execution_state.subtasks[jobcan_key] = SubTaskStatus(success=success, executed_at=datetime.now().isoformat())
+            except Exception as e:
+                execution_state.subtasks[jobcan_key] = SubTaskStatus(success=False, error_message=str(e))
 
-    # --- Slack Post (Dept Channel) ---
+        # Google Calendar
+        cal_key = f"google_calendar:{date_str}"
+        if not execution_state.subtasks.get(cal_key) or not execution_state.subtasks[cal_key].success:
+            try:
+                user_info = slack.get_user_info(user_id)
+                user_email = user_info.get("profile", {}).get("email")
+                if user_email:
+                    calendar = CalendarManager(user_email)
+                    start_dt, end_dt = _get_event_times(target_date, attendance_info.attendance_type, settings_dict)
+                    summary = f"【勤怠】{attendance_info.attendance_type}: {attendance_info.reason or ''}"
+                    event_id = calendar.register_event(summary, start_dt, end_dt)
+                    execution_state.subtasks[cal_key] = SubTaskStatus(success=True if event_id else False)
+                else:
+                    execution_state.subtasks[cal_key] = SubTaskStatus(success=False, error_message="Email not found")
+            except Exception as e:
+                execution_state.subtasks[cal_key] = SubTaskStatus(success=False, error_message=str(e))
+
+    # --- Slack Post (once per message) ---
     if not execution_state.subtasks.get("slack_post") or not execution_state.subtasks["slack_post"].success:
         dept_channel_id = settings_dict.get("dept_channel_id")
         if dept_channel_id:
+            dates_str = ", ".join([d.isoformat() for d in attendance_info.target_dates])
             report_format = config.get("slack.report_format")
             report_text = report_format.format(
                 user_id=user_id,
-                target_date=attendance_info.target_date,
+                target_date=dates_str,
                 attendance_type=attendance_info.attendance_type
             )
             ts = slack.post_attendance_report(dept_channel_id, report_text)
             execution_state.subtasks["slack_post"] = SubTaskStatus(success=True if ts else False)
         else:
-            execution_state.subtasks["slack_post"] = SubTaskStatus(success=True, error_message="No dept channel configured")
+            execution_state.subtasks["slack_post"] = SubTaskStatus(success=True, error_message="No dept channel")
 
-    # --- Google Calendar Subtask ---
-    if not execution_state.subtasks.get("google_calendar") or not execution_state.subtasks["google_calendar"].success:
-        try:
-            # Get user email from Slack profile
-            user_info = slack.get_user_info(user_id)
-            user_email = user_info.get("profile", {}).get("email")
-            
-            if user_email:
-                calendar = CalendarManager(user_email)
-                # Define time range based on attendance type
-                start_dt, end_dt = _get_event_times(attendance_info, settings_dict)
-                summary = f"【勤怠】{attendance_info.attendance_type}: {attendance_info.reason or ''}"
-                event_id = calendar.register_event(summary, start_dt, end_dt)
-                execution_state.subtasks["google_calendar"] = SubTaskStatus(success=True if event_id else False)
-            else:
-                execution_state.subtasks["google_calendar"] = SubTaskStatus(success=False, error_message="Email not found in Slack profile")
-        except Exception as e:
-            execution_state.subtasks["google_calendar"] = SubTaskStatus(success=False, error_message=str(e))
-
-    # --- Slack Status Subtask ---
+    # --- Slack Status (once per message, using the first date as reference) ---
     if not execution_state.subtasks.get("slack_status") or not execution_state.subtasks["slack_status"].success:
         user_token = get_slack_user_token(user_id)
         if user_token:
@@ -134,15 +141,15 @@ async def worker():
                 )
                 execution_state.subtasks["slack_status"] = SubTaskStatus(success=True)
             else:
-                execution_state.subtasks["slack_status"] = SubTaskStatus(success=True, error_message="No status mapping found")
+                execution_state.subtasks["slack_status"] = SubTaskStatus(success=True, error_message="No mapping")
         else:
-            execution_state.subtasks["slack_status"] = SubTaskStatus(success=False, error_message="User token missing")
+            execution_state.subtasks["slack_status"] = SubTaskStatus(success=False, error_message="Token missing")
 
     # 5. Finalize and Feedback
     overall_success = all(s.success for s in execution_state.subtasks.values())
     status = "success" if overall_success else "partial_failure"
     
-    history_manager.update_task_status(client_msg_id, status, execution_state.dict()["subtasks"])
+    history_manager.update_task_status(client_msg_id, status, execution_state.model_dump()["subtasks"])
     
     feedback_header = config.get("slack.feedback_header")
     feedback_text = feedback_header + "\n" + "\n".join([f"- {k}: {'✅' if v.success else '❌' + (f' ({v.error_message})' if v.error_message else '')}" for k, v in execution_state.subtasks.items()])
@@ -150,11 +157,8 @@ async def worker():
 
     return jsonify({"status": status}), 200
 
-def _get_event_times(info: AttendanceInfo, settings: dict):
+def _get_event_times(target_date: date, t_type: str, settings: dict) -> Tuple[datetime, datetime]:
     """Helper to calculate event start/end times."""
-    target_date = info.target_date
-    t_type = info.attendance_type
-    
     if t_type == "full_day":
         start = time.fromisoformat(settings["working_hours_start"])
         end = time.fromisoformat(settings["working_hours_end"])
@@ -165,7 +169,6 @@ def _get_event_times(info: AttendanceInfo, settings: dict):
         start = time.fromisoformat(settings["afternoon_off_start"])
         end = time.fromisoformat(settings["afternoon_off_end"])
     else:
-        # Default to whole day for other types for now
         start = time.fromisoformat(settings["working_hours_start"])
         end = time.fromisoformat(settings["working_hours_end"])
         

@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from datetime import date
 
 class UserSettings(BaseModel):
@@ -22,7 +22,7 @@ class AttendanceInfo(BaseModel):
     """
     Structured data extracted from a Slack message by Gemini API.
     """
-    target_date: Optional[date] = None
+    target_dates: List[date] = Field(default_factory=list)
     attendance_type: str  # e.g., "full_day", "morning_off", "afternoon_off", "late", "early", "flex", "none"
     reason: Optional[str] = None
     original_message: str

@@ -12,11 +12,11 @@ gemini:
     Message: "{message}"
     
     Output must be a JSON object with the following keys:
-    - target_date: ISO 8601 format (YYYY-MM-DD), or null if not applicable
+    - target_dates: A list of dates in ISO 8601 format (YYYY-MM-DD), or empty list if not applicable
     - attendance_type: One of "full_day", "morning_off", "afternoon_off", "late", "early", "flex", "none"
     - reason: Brief reason for the attendance change
     
-    If the message does not indicate any change to attendance (e.g., "I will not be absent"), set attendance_type to "none" and target_date to null.
+    If the message does not indicate any change to attendance (e.g., "I will not be absent"), set attendance_type to "none" and target_dates to [].
 
 jobcan:
   base_url: "https://ssl.jobcan.jp/employee"

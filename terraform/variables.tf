@@ -16,7 +16,13 @@ variable "app_prefix" {
 }
 
 variable "settings_spreadsheet_id" {
-  description = "The ID of the Google Spreadsheet for user settings"
+  description = "The ID of the Google Spreadsheet containing user settings"
+  type        = string
+  default     = ""
+}
+
+variable "admin_email" {
+  description = "Email address for monitoring alerts"
   type        = string
   default     = ""
 }
